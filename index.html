@@ -1,38 +1,288 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Xbox Controller WebXR</title>
-    <meta name="description" content="WebXR with Xbox Controller Movement">
+<html lang="en">
+<head>
+    <title>Molecule VR - Free Regrabbing</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; background-color: #000; overflow: hidden; }
+        #ui {
+            position: absolute; top: 20px; width: 100%; text-align: center; 
+            color: cyan; font-family: monospace; font-size: 16px; pointer-events: none;
+            text-shadow: 1px 1px 2px black;
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui">L-Stick: MOVE | R-Stick: TURN | Button: GRAB/DROP</div>
+
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { VRButton } from 'three/addons/webxr/VRButton.js';
+
+    let camera, scene, renderer;
+    let userGroup, reticle;
     
-    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    // Logic Variables
+    let moleculeGroup; 
+    let heldAtom = null; 
+    let hoveredAtom = null; // To track what we are looking at
+    let buttonCooldown = false;
     
-    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
-  </head>
-  <body>
-    <a-scene>
-      
-      <a-assets>
-        <img id="grid" src="https://cdn.aframe.io/a-painter/images/floor.jpg" crossorigin="anonymous">
-      </a-assets>
+    // --- CRITICAL FIX: Global List ---
+    // The raycaster will ALWAYS check this list, no matter where the atom is.
+    const allAtoms = [];
+    
+    // Store "Home" data to snap atoms back
+    const atomHomes = new Map(); 
 
-      <a-entity id="rig" movement-controls="controls: gamepad; speed: 0.3; fly: false" position="0 0 0">
+    init();
+    animate();
+
+    function init() {
+        // 1. Scene
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050505); // Very dark grey
+        scene.fog = new THREE.Fog(0x050505, 2, 15);
+
+        // 2. Player Rig (UserGroup)
+        userGroup = new THREE.Group();
+        scene.add(userGroup);
         
-        <a-entity camera 
-                  position="0 1.6 0" 
-                  look-controls="pointerLockEnabled: true">
-        </a-entity>
+        camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 100);
+        userGroup.add(camera);
+
+        // 3. Environment
+        const grid = new THREE.GridHelper(50, 50, 0x333333, 0x111111);
+        scene.add(grid);
         
-      </a-entity>
-      <a-plane src="#grid" rotation="-90 0 0" width="50" height="50" repeat="10 10"></a-plane>
+        // Add ambient light so dropped atoms don't disappear in shadow
+        const ambientLight = new THREE.AmbientLight(0x404040, 2); 
+        scene.add(ambientLight);
+        
+        const dirLight = new THREE.DirectionalLight(0xffffff, 2);
+        dirLight.position.set(1, 5, 1);
+        scene.add(dirLight);
 
-      <a-box position="-2 0.5 -3" rotation="0 45 0" color="#4CC3D9"></a-box>
-      <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E"></a-sphere>
-      <a-cylinder position="2 0.75 -3" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
-      
-      <a-sky color="#ECECEC"></a-sky>
-      <a-light type="ambient" color="#445451"></a-light>
-      <a-light type="point" intensity="2" position="2 4 4"></a-light>
+        // 4. Build Molecule
+        createMolecule();
 
-    </a-scene>
-  </body>
+        // 5. Reticle (Gaze Cursor)
+        const reticleGeo = new THREE.RingGeometry(0.02, 0.04, 32);
+        const reticleMat = new THREE.MeshBasicMaterial({ color: 0xffffff, opacity: 0.5, transparent: true });
+        reticle = new THREE.Mesh(reticleGeo, reticleMat);
+        reticle.position.z = -1; 
+        camera.add(reticle);
+
+        // 6. Renderer
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.xr.enabled = true;
+        document.body.appendChild(renderer.domElement);
+        document.body.appendChild(VRButton.createButton(renderer));
+    }
+
+    function createMolecule() {
+        moleculeGroup = new THREE.Group();
+        moleculeGroup.position.set(0, 1.6, -2); 
+        scene.add(moleculeGroup);
+
+        const ox = createAtom(0.25, 0xff0000, "Oxygen");
+        ox.position.set(0, 0, 0);
+        moleculeGroup.add(ox);
+
+        const h1 = createAtom(0.15, 0xffffff, "Hydrogen 1");
+        h1.position.set(-0.4, -0.3, 0);
+        moleculeGroup.add(h1);
+
+        const h2 = createAtom(0.15, 0xffffff, "Hydrogen 2");
+        h2.position.set(0.4, -0.3, 0);
+        moleculeGroup.add(h2);
+
+        createBond(ox.position, h1.position);
+        createBond(ox.position, h2.position);
+    }
+
+    function createAtom(size, color, name) {
+        const geo = new THREE.SphereGeometry(size, 32, 32);
+        const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.2, metalness: 0.1 });
+        const atom = new THREE.Mesh(geo, mat);
+        atom.name = name;
+        
+        // Add to GLOBAL list (This fixes the 'can't regrab' issue)
+        allAtoms.push(atom);
+
+        // Save Home Position
+        setTimeout(() => {
+            atomHomes.set(atom.uuid, {
+                parent: atom.parent,
+                pos: atom.position.clone(),
+                quat: atom.quaternion.clone()
+            });
+        }, 100);
+        
+        return atom;
+    }
+
+    function createBond(pos1, pos2) {
+        const start = new THREE.Vector3().copy(pos1);
+        const end = new THREE.Vector3().copy(pos2);
+        const distance = start.distanceTo(end);
+        
+        // Make bonds thinner so they don't block interaction
+        const cylinder = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.02, 0.02, distance, 8),
+            new THREE.MeshStandardMaterial({ color: 0x888888 })
+        );
+        
+        const mid = start.clone().add(end).multiplyScalar(0.5);
+        cylinder.position.copy(mid);
+        cylinder.lookAt(end);
+        cylinder.rotateX(Math.PI / 2);
+        moleculeGroup.add(cylinder);
+    }
+
+    function animate() {
+        renderer.setAnimationLoop(render);
+    }
+
+    function render() {
+        checkHover(); // Constantly check what we are looking at
+        handleController();
+        renderer.render(scene, camera);
+    }
+
+    // --- HOVER LOGIC (Visual Feedback) ---
+    function checkHover() {
+        // Don't check hover if we are already holding something
+        if (heldAtom) {
+            reticle.material.color.setHex(0xff0000); // Red reticle = Busy
+            return;
+        }
+
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera({ x: 0, y: 0 }, camera);
+        
+        // Check against GLOBAL list
+        const intersects = raycaster.intersectObjects(allAtoms);
+
+        if (intersects.length > 0) {
+            const atom = intersects[0].object;
+            
+            // If looking at a NEW atom, highlight it
+            if (hoveredAtom !== atom) {
+                // Reset old one
+                if (hoveredAtom) hoveredAtom.material.emissive.setHex(0x000000);
+                
+                hoveredAtom = atom;
+                hoveredAtom.material.emissive.setHex(0x444444); // Glow
+                reticle.material.color.setHex(0x00ff00); // Green = Ready
+                document.getElementById('ui').innerText = "Ready to Grab: " + atom.name;
+            }
+        } else {
+            // Looking at nothing
+            if (hoveredAtom) {
+                hoveredAtom.material.emissive.setHex(0x000000); // Stop Glow
+                hoveredAtom = null;
+            }
+            reticle.material.color.setHex(0xffffff); // White = Idle
+            document.getElementById('ui').innerText = "L-Stick: MOVE | R-Stick: TURN";
+        }
+    }
+
+    // --- CONTROLLER LOGIC ---
+    function handleController() {
+        const gamepads = navigator.getGamepads();
+        for (let i = 0; i < gamepads.length; i++) {
+            const gp = gamepads[i];
+            if (gp) {
+                const speed = 0.05;
+                const rotateSpeed = 0.03;
+
+                // 1. LEFT STICK (Move)
+                if (Math.abs(gp.axes[0]) > 0.1) userGroup.translateX(gp.axes[0] * speed);
+                if (Math.abs(gp.axes[1]) > 0.1) userGroup.translateZ(gp.axes[1] * speed);
+
+                // 2. RIGHT STICK (Turn)
+                // Assuming Axes 2 and 3 are the Right Stick
+                if (Math.abs(gp.axes[2]) > 0.1) {
+                    userGroup.rotation.y -= gp.axes[2] * rotateSpeed;
+                }
+
+                // 3. BUTTON (Grab/Drop)
+                if (gp.buttons[0].pressed && !buttonCooldown) {
+                    
+                    if (heldAtom) {
+                        dropLogic();
+                    } else if (hoveredAtom) {
+                        grabLogic(hoveredAtom);
+                    }
+
+                    buttonCooldown = true;
+                    setTimeout(() => buttonCooldown = false, 500);
+                }
+            }
+        }
+    }
+
+    function grabLogic(atom) {
+        heldAtom = atom;
+        
+        // 'attach' moves the object into the camera's hierarchy 
+        // WITHOUT jumping visual position. It feels very natural.
+        camera.attach(heldAtom);
+        
+        // Optional: Animate it to a nice "holding" position
+        // For now, let's just pull it slightly closer if it's too far
+        if (heldAtom.position.z < -2) heldAtom.position.z = -1.5;
+        if (heldAtom.position.z > -0.5) heldAtom.position.z = -1; // Don't clip into face
+        
+        document.getElementById('ui').innerText = "HOLDING " + heldAtom.name;
+    }
+
+    function dropLogic() {
+        const homeData = atomHomes.get(heldAtom.uuid);
+        
+        // Calculate Distance to Home
+        const worldHome = new THREE.Vector3();
+        homeData.pos.clone(); // clone local
+        
+        // We need to calculate where the home IS in world space
+        // We create a temporary vector and transform it
+        worldHome.copy(homeData.pos).applyMatrix4(homeData.parent.matrixWorld);
+        
+        const currentPos = new THREE.Vector3();
+        heldAtom.getWorldPosition(currentPos);
+
+        const distance = currentPos.distanceTo(worldHome);
+
+        if (distance < 0.6) { 
+            // --- SNAP BACK ---
+            homeData.parent.attach(heldAtom); // Attach back to Molecule
+            heldAtom.position.copy(homeData.pos); // Snap to exact slot
+            heldAtom.rotation.copy(homeData.quat);
+            heldAtom.material.emissive.setHex(0x000000);
+            document.getElementById('ui').innerText = "REPAIRED!";
+        } else {
+            // --- DROP FREE ---
+            scene.attach(heldAtom); // Attach to world (keeps it where it is)
+            heldAtom.material.emissive.setHex(0x000000);
+            document.getElementById('ui').innerText = "DROPPED";
+        }
+
+        heldAtom = null;
+        hoveredAtom = null; // Reset hover so we don't instantly regrab
+    }
+</script>
+</body>
 </html>
