@@ -1,4 +1,4 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html>
   <head>
     <title>WebXR Cardboard with Xbox Controller</title>
@@ -7,14 +7,12 @@
     <!-- 1. Load A-Frame -->
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
     
-    <!-- 2. Load WebXR Polyfill (Crucial for Cardboard support on modern phones) -->
+    <!-- 2. Load WebXR Polyfill -->
     <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.js"></script>
 
     <script>
-      // Initialize the Polyfill immediately
       const polyfill = new WebXRPolyfill();
 
-      // 3. Custom Component to handle Xbox Controller
       AFRAME.registerComponent('xbox-mover', {
         schema: {
           speed: {type: 'number', default: 0.1},
@@ -23,67 +21,62 @@
 
         init: function () {
           this.gamepadIndex = null;
-          this.cameraRig = this.el; // We attach this to the camera rig (the parent of the camera)
+          this.cameraRig = this.el;
+          this.camera = document.querySelector('[camera]');
+          this.debugText = document.querySelector('#debug-text');
           
-          // Listen for gamepad connection
           window.addEventListener("gamepadconnected", (e) => {
-            console.log("Gamepad connected at index %d: %s. %d buttons, %d axes.",
-              e.gamepad.index, e.gamepad.id,
-              e.gamepad.buttons.length, e.gamepad.axes.length);
+            console.log("Gamepad connected:", e.gamepad.id);
             this.gamepadIndex = e.gamepad.index;
-            
-            // Visual feedback
-            const msg = document.querySelector('#status-text');
-            if(msg) msg.setAttribute('value', 'Controller Connected!');
+            if(this.debugText) this.debugText.setAttribute('value', 'Controller Connected!');
           });
 
           window.addEventListener("gamepaddisconnected", (e) => {
             this.gamepadIndex = null;
-            const msg = document.querySelector('#status-text');
-            if(msg) msg.setAttribute('value', 'Connect Xbox Controller');
+            if(this.debugText) this.debugText.setAttribute('value', 'Controller Disconnected');
           });
         },
 
         tick: function (time, timeDelta) {
-          if (this.gamepadIndex === null) return;
+          // 1. Safety: If no controller or camera, stop immediately
+          if (this.gamepadIndex === null || !this.camera) return;
 
           const gamepads = navigator.getGamepads();
           const gp = gamepads[this.gamepadIndex];
 
-          if (!gp) return;
+          // 2. Safety: Ensure gamepad object and axes exist
+          if (!gp || !gp.axes || gp.axes.length < 2) return;
 
-          // Xbox Controller Mapping (Standard Gamepad Layout)
-          // Axes 0: Left Stick X (Left/Right)
-          // Axes 1: Left Stick Y (Up/Down)
-          // Axes 2: Right Stick X (Look Left/Right - Optional if using head tracking)
-          
-          const leftStickX = gp.axes[0];
-          const leftStickY = gp.axes[1];
-          
-          // Deadzone to prevent drift (small movements when stick is idle)
+          // 3. Get Inputs (Default to 0 to prevent NaN)
+          const leftStickX = gp.axes[0] || 0;
+          const leftStickY = gp.axes[1] || 0;
           const deadzone = 0.1;
 
-          // MOVEMENT LOGIC
+          // Movement Logic
           if (Math.abs(leftStickY) > deadzone || Math.abs(leftStickX) > deadzone) {
             
-            // Get current rotation of the camera to move relative to where we are looking
-            const camera = document.querySelector('[camera]');
-            const angle = camera.object3D.rotation.y;
-            
-            // Calculate movement vector based on head direction
-            // Moving forward (Stick Y -1) means moving in direction of angle
+            // 4. Safety: Check if rotation is valid
+            const angle = this.camera.object3D.rotation.y;
+            if (isNaN(angle)) return;
+
+            // Calculate movement
             const x = Math.sin(angle) * -leftStickY + Math.cos(angle) * leftStickX;
             const z = Math.cos(angle) * -leftStickY - Math.sin(angle) * leftStickX;
 
-            // Apply position update
-            this.cameraRig.object3D.position.x += x * this.schema.speed;
-            this.cameraRig.object3D.position.z += z * this.schema.speed;
+            // 5. CRITICAL FIX: Only apply if numbers are valid
+            if (!isNaN(x) && !isNaN(z)) {
+                this.cameraRig.object3D.position.x += x * this.schema.speed;
+                this.cameraRig.object3D.position.z += z * this.schema.speed;
+                
+                // Optional: Update debug text with coords to prove it's working
+                // this.debugText.setAttribute('value', `Pos: ${this.cameraRig.object3D.position.x.toFixed(1)}, ${this.cameraRig.object3D.position.z.toFixed(1)}`);
+            }
           }
 
-          // BUTTON ACTIONS (Example: Button A (index 0) changes color of a box)
-          if (gp.buttons[0].pressed) {
+          // Button A (Index 0) to reset color
+          if (gp.buttons && gp.buttons[0] && gp.buttons[0].pressed) {
             const box = document.querySelector('#interact-box');
-            box.setAttribute('color', '#' + Math.floor(Math.random()*16777215).toString(16));
+            if (box) box.setAttribute('color', '#' + Math.floor(Math.random()*16777215).toString(16));
           }
         }
       });
@@ -91,40 +84,34 @@
   </head>
   <body>
     <a-scene>
-      <!-- Asset Management -->
       <a-assets>
         <img id="sky" src="https://cdn.aframe.io/360-image-gallery-boilerplate/img/sechelt.jpg">
         <img id="grid" src="https://cdn.aframe.io/sample-assets/assets/images/wood/wood-floor.jpg">
       </a-assets>
 
-      <!-- Environment -->
       <a-sky src="#sky"></a-sky>
       <a-plane src="#grid" rotation="-90 0 0" width="30" height="30" repeat="10 10"></a-plane>
 
-      <!-- Player Rig -->
-      <!-- We move the 'rig', not the camera directly, to keep head tracking separated from body movement -->
+      <!-- Rig carries the camera -->
       <a-entity id="rig" position="0 1.6 0" xbox-mover="speed: 0.15">
         <a-camera position="0 0 0" look-controls="enabled: true">
-          <!-- HUD Text (Fixed to camera view) -->
-          <a-text id="status-text" 
-                  value="Connect Xbox Controller via Bluetooth" 
+           <!-- Debug HUD -->
+          <a-text id="debug-text" 
+                  value="Waiting for Controller..." 
                   position="0 -0.5 -1" 
                   width="2" 
                   align="center" 
-                  color="white">
+                  color="yellow">
           </a-text>
         </a-camera>
       </a-entity>
 
-      <!-- Interactive Objects -->
       <a-box id="interact-box" position="-2 0.5 -3" rotation="0 45 0" color="#4CC3D9" shadow></a-box>
       <a-sphere position="0 1.25 -5" radius="1.25" color="#EF2D5E" shadow></a-sphere>
       <a-cylinder position="1 0.75 -3" radius="0.5" height="1.5" color="#FFC65D" shadow></a-cylinder>
 
-      <!-- Lighting -->
       <a-entity light="type: ambient; color: #BBB"></a-entity>
       <a-entity light="type: directional; color: #FFF; intensity: 0.6" position="-0.5 1 1"></a-entity>
-
     </a-scene>
   </body>
 </html>
