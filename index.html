@@ -1,212 +1,212 @@
 <!DOCTYPE html>
 <html>
-  <head>
+<head>
     <title>EduVerse AR Lab</title>
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
     
     <style>
-      /* Instructions Overlay */
-      #overlay {
-        position: absolute;
-        bottom: 30px;
-        left: 0; 
-        width: 100%;
-        text-align: center;
-        z-index: 100;
-        pointer-events: none; /* Let touches pass through to the 3D scene */
-        font-family: sans-serif;
-        color: white;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-        display: none;
-      }
-      #overlay h2 { margin: 0; font-size: 24px; }
-      #overlay p { margin: 5px 0 0; font-size: 16px; opacity: 0.8; }
-    </style>
-  </head>
+        body { margin: 0; overflow: hidden; font-family: sans-serif; }
+        
+        /* 1. CUSTOM UI OVERLAY */
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 100;
+            pointer-events: none; /* Allows clicks to pass through to the 3D scene */
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end; /* Align items to bottom */
+            align-items: center;
+        }
 
-  <body>
+        /* 2. THE START BUTTON */
+        #start-btn {
+            pointer-events: auto; /* Re-enable clicks for the button */
+            margin-bottom: 50%; /* Position near center */
+            padding: 15px 40px;
+            font-size: 20px;
+            font-weight: bold;
+            background: #00D2FF;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            display: block; /* Visible initially */
+        }
+
+        /* 3. INSTRUCTIONS */
+        #instructions {
+            display: none; /* Hidden until AR starts */
+            margin-bottom: 30px;
+            color: white;
+            text-shadow: 2px 2px 4px black;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 20px;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+
+<body>
     <div id="overlay">
-      <h2>Scan the Floor</h2>
-      <p>Tap to place • Pinch to Scale • Twist to Rotate</p>
+        <button id="start-btn">START AR EXPERIENCE</button>
+        <div id="instructions">
+            <h2>Scan the Floor</h2>
+            <p>Wait for white ring • Tap to Place</p>
+        </div>
     </div>
 
     <script>
-      // --- COMPONENT 1: GESTURE DETECTOR (Handles Touch Logic) ---
-      AFRAME.registerComponent('gesture-detector', {
-        schema: { element: { default: '' } },
-        init: function() {
-          this.targetElement = this.data.element && document.querySelector(this.data.element);
-          if (!this.targetElement) this.targetElement = this.el;
+        // --- COMPONENT 1: TOUCH GESTURES (Pinch/Rotate) ---
+        AFRAME.registerComponent('gesture-detector', {
+            schema: { element: { default: '' } },
+            init: function() {
+                this.targetElement = this.data.element && document.querySelector(this.data.element);
+                if (!this.targetElement) this.targetElement = this.el;
+                this.internalState = { previousState: null };
+                this.emitGestureEvent = this.emitGestureEvent.bind(this);
+                this.targetElement.addEventListener('touchstart', this.emitGestureEvent);
+                this.targetElement.addEventListener('touchend', this.emitGestureEvent);
+                this.targetElement.addEventListener('touchmove', this.emitGestureEvent);
+            },
+            emitGestureEvent: function(event) {
+                const currentState = this.getTouchState(event);
+                const previousState = this.internalState.previousState;
+                const gestureContinues = previousState && currentState && currentState.touchCount == previousState.touchCount;
+                const gestureEnded = previousState && !gestureContinues;
+                const gestureStarted = currentState && !gestureContinues;
 
-          this.internalState = { previousState: null };
-          this.emitGestureEvent = this.emitGestureEvent.bind(this);
-          this.targetElement.addEventListener('touchstart', this.emitGestureEvent);
-          this.targetElement.addEventListener('touchend', this.emitGestureEvent);
-          this.targetElement.addEventListener('touchmove', this.emitGestureEvent);
-        },
-        emitGestureEvent: function(event) {
-          const currentState = this.getTouchState(event);
-          const previousState = this.internalState.previousState;
-          const gestureContinues = previousState && currentState && currentState.touchCount == previousState.touchCount;
-          const gestureEnded = previousState && !gestureContinues;
-          const gestureStarted = currentState && !gestureContinues;
-
-          if (gestureEnded) {
-            const eventName = this.getEventPrefix(previousState.touchCount) + 'fingerend';
-            this.el.emit(eventName, previousState);
-            this.internalState.previousState = null;
-          }
-          if (gestureStarted) {
-            currentState.startTime = performance.now();
-            currentState.startPosition = currentState.position;
-            currentState.startSpread = currentState.spread;
-            const eventName = this.getEventPrefix(currentState.touchCount) + 'fingerstart';
-            this.el.emit(eventName, currentState);
-            this.internalState.previousState = currentState;
-          }
-          if (gestureContinues) {
-            const eventDidNotChange = previousState.position.x === currentState.position.x &&
-                                      previousState.position.y === currentState.position.y &&
-                                      previousState.spread === currentState.spread;
-            if (eventDidNotChange) return;
-            const eventName = this.getEventPrefix(currentState.touchCount) + 'fingermove';
-            this.el.emit(eventName, {
-              ...currentState,
-              previousPosition: previousState.position,
-              previousSpread: previousState.spread
-            });
-            this.internalState.previousState = currentState;
-          }
-        },
-        getTouchState: function(event) {
-          if (event.touches.length === 0) return null;
-          // Calculate Center Point
-          const touchList = [];
-          for (let i = 0; i < event.touches.length; i++) {
-            touchList.push(event.touches[i]);
-          }
-          const touchCenter = touchList.reduce((a, b) => ({ x: a.x + b.clientX, y: a.y + b.clientY }), { x: 0, y: 0 });
-          touchCenter.x /= event.touches.length;
-          touchCenter.y /= event.touches.length;
-          
-          // Calculate Spread (for pinch)
-          let spread = 0;
-          if (event.touches.length > 1) {
-             const dx = event.touches[0].clientX - event.touches[1].clientX;
-             const dy = event.touches[0].clientY - event.touches[1].clientY;
-             spread = Math.sqrt(dx * dx + dy * dy);
-          }
-          return { touchCount: event.touches.length, position: touchCenter, spread: spread };
-        },
-        getEventPrefix: function(touchCount) {
-          return touchCount === 1 ? 'one' : touchCount === 2 ? 'two' : 'multi';
-        }
-      });
-
-      // --- COMPONENT 2: MANIPULATION (Scale & Rotate) ---
-      AFRAME.registerComponent('gesture-handler', {
-        schema: {
-          enabled: { default: true },
-          rotationFactor: { default: 5 },
-          minScale: { default: 0.1 },
-          maxScale: { default: 3 }
-        },
-        init: function() {
-          this.handleScale = this.handleScale.bind(this);
-          this.handleRotation = this.handleRotation.bind(this);
-          this.isVisible = false;
-          this.initialScale = this.el.object3D.scale.clone();
-          this.scaleFactor = 1;
-          
-          this.el.sceneEl.addEventListener('twofingermove', this.handleScale);
-          this.el.sceneEl.addEventListener('onefingermove', this.handleRotation); 
-        },
-        handleScale: function(event) {
-          if (!this.isVisible) return;
-          this.scaleFactor *= 1 + (event.detail.spread - event.detail.previousSpread) * 0.005;
-          this.scaleFactor = Math.min(Math.max(this.scaleFactor, this.data.minScale), this.data.maxScale);
-          this.el.object3D.scale.x = this.scaleFactor * this.initialScale.x;
-          this.el.object3D.scale.y = this.scaleFactor * this.initialScale.y;
-          this.el.object3D.scale.z = this.scaleFactor * this.initialScale.z;
-        },
-        handleRotation: function(event) {
-          if (!this.isVisible) return;
-          // One finger drag to rotate Y
-          this.el.object3D.rotation.y += event.detail.position.x - event.detail.previousPosition.x > 0 ? 0.05 : -0.05;
-        }
-      });
-
-      // --- COMPONENT 3: AR HIT TEST & TAP TO PLACE ---
-      AFRAME.registerComponent('ar-spawner', {
-        init: function () {
-          this.reticle = document.querySelector('#reticle');
-          this.model = document.querySelector('#molecule-model');
-          this.overlay = document.querySelector('#overlay');
-          this.scene = this.el.sceneEl;
-          this.placed = false;
-
-          this.scene.addEventListener('enter-vr', () => {
-            if (this.scene.is('ar-mode')) {
-              this.overlay.style.display = 'block';
-              this.reticle.setAttribute('visible', 'true');
+                if (gestureEnded) {
+                    this.el.emit('fingerend', previousState);
+                    this.internalState.previousState = null;
+                }
+                if (gestureStarted) {
+                    currentState.startTime = performance.now();
+                    currentState.startPosition = currentState.position;
+                    currentState.startSpread = currentState.spread;
+                    this.el.emit('fingerstart', currentState);
+                    this.internalState.previousState = currentState;
+                }
+                if (gestureContinues) {
+                    const eventDidNotChange = previousState.position.x === currentState.position.x &&
+                                            previousState.position.y === currentState.position.y &&
+                                            previousState.spread === currentState.spread;
+                    if (eventDidNotChange) return;
+                    this.el.emit('fingermove', {
+                        ...currentState,
+                        previousPosition: previousState.position,
+                        previousSpread: previousState.spread
+                    });
+                    this.internalState.previousState = currentState;
+                }
+            },
+            getTouchState: function(event) {
+                if (event.touches.length === 0) return null;
+                const touchList = [];
+                for (let i = 0; i < event.touches.length; i++) {
+                    touchList.push(event.touches[i]);
+                }
+                const touchCenter = touchList.reduce((a, b) => ({ x: a.x + b.clientX, y: a.y + b.clientY }), { x: 0, y: 0 });
+                touchCenter.x /= event.touches.length;
+                touchCenter.y /= event.touches.length;
+                let spread = 0;
+                if (event.touches.length > 1) {
+                    const dx = event.touches[0].clientX - event.touches[1].clientX;
+                    const dy = event.touches[0].clientY - event.touches[1].clientY;
+                    spread = Math.sqrt(dx * dx + dy * dy);
+                }
+                return { touchCount: event.touches.length, position: touchCenter, spread: spread };
             }
-          });
+        });
 
-          // Handle Tap
-          this.scene.addEventListener('click', () => {
-             // Only place if we are in AR mode, reticle is visible, and haven't placed yet
-             if (this.scene.is('ar-mode') && this.reticle.getAttribute('visible') && !this.placed) {
-                // Clone position/rotation from reticle to model
-                this.model.setAttribute('position', this.reticle.getAttribute('position'));
-                this.model.setAttribute('rotation', this.reticle.getAttribute('rotation'));
-                this.model.setAttribute('visible', 'true');
-                
-                // Enable gesture manipulation on the model
-                this.model.components['gesture-handler'].isVisible = true;
+        // --- COMPONENT 2: GESTURE HANDLER (Logic for Scale/Rotate) ---
+        AFRAME.registerComponent('gesture-handler', {
+            schema: { minScale: { default: 0.1 }, maxScale: { default: 3 } },
+            init: function() {
+                this.handleScale = this.handleScale.bind(this);
+                this.handleRotation = this.handleRotation.bind(this);
+                this.isVisible = false;
+                this.initialScale = this.el.object3D.scale.clone();
+                this.scaleFactor = 1;
+                this.el.sceneEl.addEventListener('fingermove', (e) => {
+                    if (!this.isVisible) return;
+                    if (e.detail.touchCount === 2) this.handleScale(e);
+                    if (e.detail.touchCount === 1) this.handleRotation(e);
+                });
+            },
+            handleScale: function(event) {
+                this.scaleFactor *= 1 + (event.detail.spread - event.detail.previousSpread) * 0.005;
+                this.scaleFactor = Math.min(Math.max(this.scaleFactor, this.data.minScale), this.data.maxScale);
+                this.el.object3D.scale.setScalar(this.scaleFactor * this.initialScale.x);
+            },
+            handleRotation: function(event) {
+                this.el.object3D.rotation.y += (event.detail.position.x - event.detail.previousPosition.x) * 0.01;
+            }
+        });
 
-                // Hide reticle after placing
-                this.reticle.setAttribute('visible', 'false');
-                this.placed = true;
+        // --- COMPONENT 3: AR SPAWNER (Tap to Place) ---
+        AFRAME.registerComponent('ar-spawner', {
+            init: function () {
+                this.reticle = document.querySelector('#reticle');
+                this.model = document.querySelector('#molecule-model');
+                this.scene = this.el.sceneEl;
+                this.placed = false;
+
+                this.scene.addEventListener('click', () => {
+                    if (this.scene.is('ar-mode') && this.reticle.getAttribute('visible') && !this.placed) {
+                        this.model.setAttribute('position', this.reticle.getAttribute('position'));
+                        this.model.setAttribute('rotation', this.reticle.getAttribute('rotation'));
+                        this.model.setAttribute('visible', 'true');
+                        this.model.components['gesture-handler'].isVisible = true;
+                        this.reticle.setAttribute('visible', 'false');
+                        this.placed = true;
+                        document.querySelector('#instructions h2').innerText = "Molecule Placed!";
+                    }
+                });
+            }
+        });
+
+        // --- 4. START BUTTON LOGIC ---
+        window.addEventListener('load', () => {
+            const startBtn = document.getElementById('start-btn');
+            const scene = document.querySelector('a-scene');
+
+            startBtn.addEventListener('click', () => {
+                // HIDE BUTTON
+                startBtn.style.display = 'none';
+                document.getElementById('instructions').style.display = 'block';
                 
-                // Update UI
-                this.overlay.querySelector('h2').innerText = "Molecule Placed!";
-                this.overlay.querySelector('p').innerText = "Use 2 fingers to pinch/scale, 1 finger to rotate.";
-             }
-          });
-          
-          this.scene.addEventListener('ar-hit-test-start', () => {
-             this.overlay.querySelector('h2').innerText = "Scanning Environment...";
-          });
-          
-          this.scene.addEventListener('ar-hit-test-achieved', () => {
-             this.overlay.querySelector('h2').innerText = "Tap to Place Molecule";
-          });
-        }
-      });
+                // ENTER AR SESSION
+                scene.enterVR(); 
+            });
+        });
     </script>
 
     <a-scene 
+      vr-mode-ui="enabled: false"
       webxr="optionalFeatures: hit-test, dom-overlay; overlayElement: #overlay" 
       ar-hit-test="target: #reticle; type: map"
-      renderer="alpha: true; colorManagement: true;"
+      renderer="alpha: true; colorManagement: true; physicallyCorrectLights: true;"
       gesture-detector
       ar-spawner>
 
-      <a-light type="directional" intensity="1" position="-1 2 2"></a-light>
-      <a-light type="ambient" intensity="0.6"></a-light>
+        <a-light type="directional" intensity="1" position="-1 2 2"></a-light>
+        <a-light type="ambient" intensity="0.6"></a-light>
 
-      <a-entity id="reticle" visible="false">
-        <a-ring color="white" radius-inner="0.10" radius-outer="0.15" rotation="-90 0 0" opacity="0.8"></a-ring>
-      </a-entity>
+        <a-entity id="reticle" visible="false">
+            <a-ring color="white" radius-inner="0.10" radius-outer="0.15" rotation="-90 0 0" opacity="0.8"></a-ring>
+        </a-entity>
 
-      <a-entity id="molecule-model" visible="false" gesture-handler>
-          <a-sphere color="red" radius="0.3" position="0 0 0"></a-sphere>
-          <a-sphere color="white" radius="0.2" position="-0.5 -0.4 0"></a-sphere>
-          <a-sphere color="white" radius="0.2" position="0.5 -0.4 0"></a-sphere>
-          <a-cylinder color="#888" height="0.6" radius="0.05" position="-0.25 -0.2 0" rotation="0 0 -50"></a-cylinder>
-          <a-cylinder color="#888" height="0.6" radius="0.05" position="0.25 -0.2 0" rotation="0 0 50"></a-cylinder>
-      </a-entity>
+        <a-entity id="molecule-model" visible="false" gesture-handler>
+            <a-sphere color="red" radius="0.3" position="0 0 0"></a-sphere>
+            <a-sphere color="white" radius="0.2" position="-0.5 -0.4 0"></a-sphere>
+            <a-sphere color="white" radius="0.2" position="0.5 -0.4 0"></a-sphere>
+            <a-cylinder color="#888" height="0.6" radius="0.05" position="-0.25 -0.2 0" rotation="0 0 -50"></a-cylinder>
+            <a-cylinder color="#888" height="0.6" radius="0.05" position="0.25 -0.2 0" rotation="0 0 50"></a-cylinder>
+        </a-entity>
 
     </a-scene>
-  </body>
+</body>
 </html>
