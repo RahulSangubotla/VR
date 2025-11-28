@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>EduVerse AR - V2</title>
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
+    
+    <style>
+        /* This ensures the VR button is gone even if A-Frame tries to add it */
+        .a-enter-vr-button { display: none !important; }
+        
+        /* Simple white start screen */
+        #start-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: white; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        #launch-btn {
+            padding: 20px 50px; background: #007bff; color: white;
+            font-size: 20px; border: none; border-radius: 10px; font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="start-screen">
+        <h1>Molecule AR</h1>
+        <button id="launch-btn">START CAMERA</button>
+        <p>Make sure you are in a well-lit room.</p>
+    </div>
+
+    <script>
+        // --- AR LOGIC ---
+        AFRAME.registerComponent('ar-controller', {
+            init: function () {
+                const scene = this.el.sceneEl;
+                const btn = document.getElementById('launch-btn');
+                const startScreen = document.getElementById('start-screen');
+                
+                // 1. Start AR on click
+                btn.addEventListener('click', () => {
+                    startScreen.style.display = 'none'; // Hide UI immediately
+                    scene.enterVR(); // Request AR
+                });
+
+                // 2. Handle Tap to Place
+                this.el.sceneEl.addEventListener('click', () => {
+                    const reticle = document.querySelector('#reticle');
+                    const molecule = document.querySelector('#molecule');
+                    const label = document.querySelector('#hud-text');
+
+                    // If reticle is visible (surface found), place the object
+                    if (reticle.getAttribute('visible')) {
+                        molecule.setAttribute('position', reticle.getAttribute('position'));
+                        molecule.setAttribute('rotation', reticle.getAttribute('rotation'));
+                        molecule.setAttribute('visible', 'true');
+                        
+                        // Hide Reticle & Text after placing
+                        reticle.setAttribute('visible', 'false');
+                        label.setAttribute('visible', 'false');
+                    }
+                });
+            }
+        });
+    </script>
+
+    <a-scene 
+      ar-controller
+      vr-mode-ui="enabled: false"
+      webxr="optionalFeatures: hit-test;" 
+      ar-hit-test="target: #reticle; type: map"
+      renderer="alpha: true; physicallyCorrectLights: true;">
+
+        <a-light type="directional" intensity="1" position="-1 2 2"></a-light>
+        <a-light type="ambient" intensity="0.5"></a-light>
+
+        <a-entity camera position="0 1.6 0" look-controls="enabled: false">
+            <a-text id="hud-text" value="Scan Floor -> Tap" position="0 0 -0.5" 
+                    scale="0.2 0.2 0.2" align="center" color="yellow" width="2"></a-text>
+        </a-entity>
+
+        <a-ring id="reticle" color="white" radius-inner="0.10" radius-outer="0.15" rotation="-90 0 0" visible="false"></a-ring>
+
+        <a-entity id="molecule" visible="false" scale="0.5 0.5 0.5">
+            <a-sphere color="red" radius="0.3" position="0 0 0"></a-sphere>
+            <a-sphere color="white" radius="0.2" position="-0.5 -0.4 0"></a-sphere>
+            <a-sphere color="white" radius="0.2" position="0.5 -0.4 0"></a-sphere>
+            <a-cylinder color="#888" height="0.6" radius="0.05" position="-0.25 -0.2 0" rotation="0 0 -50"></a-cylinder>
+            <a-cylinder color="#888" height="0.6" radius="0.05" position="0.25 -0.2 0" rotation="0 0 50"></a-cylinder>
+            <a-animation attribute="scale" from="0 0 0" to="0.5 0.5 0.5" dur="1000" easing="ease-out-elastic"></a-animation>
+        </a-entity>
+
+    </a-scene>
+</body>
+</html>
