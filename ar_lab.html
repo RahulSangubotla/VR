@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>EduVerse - Molecule AR Lab</title>
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
+    
+    <style>
+        /* Simple UI Overlay for AR Instructions */
+        #overlay {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+            font-family: sans-serif;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+            display: none; /* Hidden until AR starts */
+        }
+    </style>
+  </head>
+
+  <body>
+    <div id="overlay">
+        <h2>Tap screen to place the Molecule</h2>
+    </div>
+
+    <script>
+        // --- AR HIT TEST & PLACEMENT COMPONENT ---
+        AFRAME.registerComponent('ar-spawner', {
+            init: function () {
+                this.reticle = document.querySelector('#reticle');
+                this.model = document.querySelector('#molecule-model');
+                this.overlay = document.querySelector('#overlay');
+                this.placed = false;
+
+                // Handle taps on the screen
+                this.el.sceneEl.addEventListener('click', () => {
+                    if (this.reticle.getAttribute('visible') && !this.placed) {
+                        // 1. Move model to reticle position
+                        this.model.setAttribute('position', this.reticle.getAttribute('position'));
+                        this.model.setAttribute('rotation', this.reticle.getAttribute('rotation'));
+                        
+                        // 2. Make model visible
+                        this.model.setAttribute('visible', 'true');
+                        
+                        // 3. Simple animation to show it spawned
+                        this.model.emit('spawned');
+                        
+                        this.placed = true;
+                        this.overlay.innerHTML = "<h2>Molecule Placed! Walk around it.</h2>";
+                    }
+                });
+                
+                // Show overlay when entering AR
+                this.el.sceneEl.addEventListener('enter-vr', () => {
+                    if (this.el.sceneEl.is('ar-mode')) {
+                        this.overlay.style.display = 'block';
+                    }
+                });
+            },
+            
+            tick: function () {
+                // In AR, we don't need to do anything complex here
+                // The 'ar-hit-test' system handles the reticle automatically
+            }
+        });
+    </script>
+
+    <a-scene 
+      webxr="optionalFeatures: hit-test, dom-overlay; overlayElement: #overlay" 
+      ar-hit-test="target: #reticle; type: map"
+      renderer="colorManagement: true; physicallyCorrectLights: true"
+      ar-spawner>
+
+      <a-light type="directional" intensity="1" position="-1 2 2"></a-light>
+      <a-light type="ambient" intensity="0.5"></a-light>
+
+      <a-entity id="reticle" visible="false">
+        <a-ring color="white" radius-inner="0.10" radius-outer="0.15" rotation="-90 0 0" opacity="0.8"></a-ring>
+        <a-circle color="white" radius="0.05" rotation="-90 0 0" opacity="0.5"></a-circle>
+      </a-entity>
+
+      <a-entity id="molecule-model" visible="false" scale="0.5 0.5 0.5">
+          <a-animation attribute="scale" begin="spawned" from="0 0 0" to="0.5 0.5 0.5" dur="500" easing="ease-out-elastic"></a-animation>
+
+          <a-sphere class="atom" color="red" radius="0.3" position="0 0 0" shadow></a-sphere>
+          
+          <a-sphere class="atom" color="white" radius="0.2" position="-0.5 -0.4 0" shadow></a-sphere>
+
+          <a-sphere class="atom" color="white" radius="0.2" position="0.5 -0.4 0" shadow></a-sphere>
+
+          <a-cylinder class="molecule-move" color="#888" height="0.6" radius="0.05" 
+                      position="-0.25 -0.2 0" rotation="0 0 -50"></a-cylinder>
+                      
+          <a-cylinder class="molecule-move" color="#888" height="0.6" radius="0.05" 
+                      position="0.25 -0.2 0" rotation="0 0 50"></a-cylinder>
+      </a-entity>
+      
+      </a-scene>
+  </body>
+</html>
