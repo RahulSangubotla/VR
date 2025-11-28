@@ -1,73 +1,116 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>EduVerse AR - Safe Mode</title>
+    <title>EduVerse - FORCE AR</title>
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
-
+    
     <style>
-        /* Force hiding the default VR button */
+        /* Hide all VR buttons */
         .a-enter-vr-button { display: none !important; }
         
-        /* A simple start button that disappears forever when clicked */
-        #start-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #222; z-index: 9999;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        body {
+            background-color: #333;
+            color: white;
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
         }
-        #start-btn {
-            padding: 20px 40px; font-size: 24px; background: #00D2FF; color: white;
-            border: none; border-radius: 10px; font-weight: bold;
+
+        #ui-container {
+            position: absolute;
+            z-index: 999;
+            text-align: center;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 15px;
+            width: 80%;
         }
-        #status-log {
-            color: yellow; margin-top: 20px; font-family: monospace;
+
+        button {
+            background: #00D2FF;
+            color: black;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            margin-top: 15px;
+            cursor: pointer;
         }
     </style>
 </head>
 
 <body>
-    <div id="start-screen">
-        <button id="start-btn">ENTER AR</button>
-        <div id="status-log">Ready.</div>
+
+    <div id="ui-container">
+        <h1>EduVerse AR</h1>
+        <p id="status">Ready to launch.</p>
+        <button id="force-ar-btn">START AR (FORCE MODE)</button>
     </div>
 
     <script>
-        const log = (msg) => document.getElementById('status-log').innerText = msg;
+        const status = document.getElementById('status');
+        const btn = document.getElementById('force-ar-btn');
+        const ui = document.getElementById('ui-container');
 
+        // --- THE MAGIC SCRIPT: BYPASS A-FRAME ---
+        async function startAR() {
+            const scene = document.querySelector('a-scene');
+            
+            if (!navigator.xr) {
+                status.innerText = "❌ WebXR not supported on this browser.";
+                return;
+            }
+
+            try {
+                status.innerText = "Requesting Session...";
+                
+                // 1. Manually request 'immersive-ar' from the browser
+                // We ask for 'hit-test' but NOT 'dom-overlay' to be safe.
+                const session = await navigator.xr.requestSession('immersive-ar', {
+                    requiredFeatures: ['hit-test'],
+                    optionalFeatures: [] 
+                });
+
+                status.innerText = "Session Granted! Starting...";
+                
+                // 2. Feed this session into A-Frame's engine
+                scene.renderer.xr.setSession(session);
+                
+                // 3. Hide our 2D UI
+                ui.style.display = 'none';
+
+            } catch (err) {
+                console.error(err);
+                status.innerText = "❌ Error: " + err.message;
+                
+                if (err.message.includes('supported')) {
+                    status.innerText += "\n(Your phone refused AR mode)";
+                }
+            }
+        }
+
+        btn.addEventListener('click', startAR);
+
+        // --- HIT TEST LOGIC (Runs once AR is active) ---
         AFRAME.registerComponent('ar-logic', {
             init: function () {
-                const scene = this.el.sceneEl;
-                const btn = document.getElementById('start-btn');
-                const startScreen = document.getElementById('start-screen');
-                const reticle = document.getElementById('reticle');
-                const model = document.getElementById('molecule');
-
-                // 1. CLICK TO START
-                btn.addEventListener('click', () => {
-                    log("Requesting AR Session...");
-                    scene.enterVR(); // This requests the WebXR session
-                });
-
-                // 2. LISTEN FOR SUCCESS
-                scene.addEventListener('enter-vr', () => {
-                    if (scene.is('ar-mode')) {
-                        // SUCCESS: Hide the start screen so we can see the camera
-                        startScreen.style.display = 'none';
-                    } else {
-                        // FAIL: We are in split screen. Tell the user.
-                        log("⚠️ FAILED: Still in Split Screen. Try resetting Chrome Flags.");
-                    }
-                });
-
-                // 3. TAP TO PLACE (3D World Logic)
-                scene.addEventListener('click', () => {
-                    if (scene.is('ar-mode') && reticle.getAttribute('visible')) {
-                        model.setAttribute('position', reticle.getAttribute('position'));
-                        model.setAttribute('rotation', reticle.getAttribute('rotation'));
-                        model.setAttribute('visible', 'true');
-                        
-                        // Add a simple animation to show it worked
-                        model.setAttribute('animation', 'property: scale; from: 0 0 0; to: 0.5 0.5 0.5; dur: 500; easing: easeOutElastic');
+                this.reticle = document.querySelector('#reticle');
+                this.model = document.querySelector('#molecule');
+                this.scene = this.el.sceneEl;
+                
+                this.scene.addEventListener('click', () => {
+                    // Only place if visible
+                    if (this.reticle.getAttribute('visible')) {
+                        this.model.setAttribute('position', this.reticle.getAttribute('position'));
+                        this.model.setAttribute('rotation', this.reticle.getAttribute('rotation'));
+                        this.model.setAttribute('visible', 'true');
                     }
                 });
             }
@@ -77,20 +120,20 @@
     <a-scene 
       ar-logic
       vr-mode-ui="enabled: false"
-      webxr="optionalFeatures: hit-test;" 
-      ar-hit-test="target: #reticle; type: map"
-      renderer="alpha: true; physicallyCorrectLights: true;">
+      renderer="alpha: true; physicallyCorrectLights: true;"
+      ar-hit-test="target: #reticle; type: map">
 
         <a-light type="directional" position="-1 2 2" intensity="1.5"></a-light>
-        <a-light type="ambient" intensity="0.8"></a-light>
+        <a-light type="ambient" intensity="0.6"></a-light>
 
         <a-ring id="reticle" color="white" radius-inner="0.10" radius-outer="0.15" rotation="-90 0 0" visible="false"></a-ring>
 
         <a-entity id="molecule" visible="false" scale="0.5 0.5 0.5">
             <a-sphere color="red" radius="0.3"></a-sphere>
-            <a-sphere color="white" radius="0.15" position="0.4 0.2 0"></a-sphere>
-            <a-sphere color="white" radius="0.15" position="-0.4 0.2 0"></a-sphere>
-            <a-text value="Tap to Place" position="0 0.5 0" align="center" color="black" scale="2 2 2"></a-text>
+            <a-sphere color="white" radius="0.2" position="-0.5 -0.4 0"></a-sphere>
+            <a-sphere color="white" radius="0.2" position="0.5 -0.4 0"></a-sphere>
+            <a-cylinder color="#888" height="0.6" radius="0.05" position="-0.25 -0.2 0" rotation="0 0 -50"></a-cylinder>
+            <a-cylinder color="#888" height="0.6" radius="0.05" position="0.25 -0.2 0" rotation="0 0 50"></a-cylinder>
         </a-entity>
 
     </a-scene>
