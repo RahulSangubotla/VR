@@ -6,7 +6,9 @@
   </head>
   <body style="margin: 0; overflow: hidden;">
     
-    <a-scene embedded arjs vr-mode-ui="enabled: false">
+    <a-scene embedded arjs 
+             vr-mode-ui="enabled: false"
+             renderer="logarithmicDepthBuffer: true;">
       
       <a-assets>
         <a-asset-item id="molecule-model" 
@@ -22,7 +24,7 @@
         </a-entity>
       </a-marker>
       
-      <a-entity camera></a-entity>
+      <a-entity camera="near: 0.01"></a-entity>
       
     </a-scene>
   </body>
