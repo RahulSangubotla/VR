@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>VR Kahoot - High Contrast</title>
+  
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+  <script>window.ioGame = window.io;</script> 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.5.0/socket.io.slim.js"></script>
+
+  <script src="https://unpkg.com/easyrtc@1.1.0/api/easyrtc.js"></script>
+  <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
+</head>
+
+<body>
+  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc; serverURL: http://localhost:8081;">
+    
+    <a-assets>
+      <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
+
+      <template id="avatar-template">
+        <a-entity class="avatar" sync-name player-animator>
+          <a-entity class="visuals">
+              <a-entity class="model"
+                        gltf-model="#robot-model" 
+                        scale="0.3 0.3 0.3" 
+                        rotation="0 180 0"
+                        position="0 -1.6 0"
+                        animation-mixer="clip: Idle; crossFadeDuration: 0.4">
+              </a-entity>
+              
+              <a-text class="nametag" value="Loading..." align="center" position="0 0.8 0" rotation="0 180 0" scale="0.5 0.5 0.5" color="yellow" side="double"></a-text>
+          </a-entity>
+        </a-entity>
+      </template>
+    </a-assets>
+
+    <a-sky color="#FFFFFF"></a-sky>
+    
+    <a-entity light="type: ambient; color: #BBB; intensity: 0.7"></a-entity>
+    <a-entity light="type: point; color: #FFF; intensity: 0.4" position="0 4 0"></a-entity>
+    
+    <a-plane position="0 0 -4" rotation="-90 0 0" width="50" height="50" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
+
+    <a-plane position="0 5 -12" width="50" height="15" color="#FFFFFF"></a-plane>
+    <a-plane position="-25 5 -4" rotation="0 90 0" width="50" height="15" color="#FFFFFF"></a-plane>
+    <a-plane position="25 5 -4" rotation="0 -90 0" width="50" height="15" color="#FFFFFF"></a-plane>
+    <a-plane position="0 5 15" rotation="0 180 0" width="50" height="15" color="#FFFFFF"></a-plane>
+
+    <a-entity position="0 4 -9.9">
+        <a-box width="9.2" height="5.2" depth="0.1" color="#222"></a-box>
+        <a-plane position="0 0 0.06" width="9" height="5" color="#000"></a-plane>
+        <a-box id="timer-bar" position="0 2.3 0.1" width="9" height="0.2" depth="0.01" color="#00ff00"></a-box>
+        <a-entity id="screen-text" text="value: Waiting for Host...; align: center; width: 8; color: white" position="0 0.5 0.1"></a-entity>
+    </a-entity>
+
+    <a-entity id="answer-buttons" position="0 1.5 -3" visible="false">
+        <a-box position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
+        <a-box position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
+    </a-entity>
+
+    <a-entity id="player" 
+              networked="template:#avatar-template; attachTemplateToLocal:true;"
+              camera look-controls wasd-controls 
+              random-spawn
+              position="0 1.7 0">
+        <a-entity cursor="fuse: false"
+                  position="0 0 -1"
+                  geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
+                  material="color: #3BB143; shader: flat">
+        </a-entity>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    // 1. NAME SYNC (Includes Retry Logic)
+    AFRAME.registerComponent('sync-name', {
+        schema: { name: { type: 'string', default: 'Loading...' } },
+        init: function() {
+            this.trySetName();
+            // Retry twice in case network is slow
+            setTimeout(() => this.trySetName(), 500);
+            setTimeout(() => this.trySetName(), 1500);
+        },
+        trySetName: function() {
+            if (NAF.utils.isMine(this.el)) {
+                const params = new URLSearchParams(window.location.search);
+                const myName = params.get('username') || 'Guest'; 
+                this.el.setAttribute('sync-name', 'name', myName);
+                
+                // Hide my own body locally
+                const visuals = this.el.querySelector('.visuals');
+                if (visuals) visuals.setAttribute('visible', false);
+            }
+        },
+        update: function() {
+            const name = this.data.name;
+            const textEl = this.el.querySelector('.nametag');
+            if (textEl) textEl.setAttribute('value', name);
+            this.updateColor(name);
+        },
+        updateColor: function(name) {
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            let color = '#';
+            for (let i = 0; i < 3; i++) color += ('00' + ((hash >> (i * 8)) & 0xFF).toString(16)).substr(-2);
+            
+            const apply = () => {
+                const obj = this.el.getObject3D('mesh');
+                if (obj) obj.traverse(n => { if (n.isMesh) n.material.color.set(color); });
+            };
+            if (this.el.getObject3D('mesh')) apply();
+            else this.el.addEventListener('model-loaded', apply);
+        }
+    });
+
+    // 2. ANIMATOR
+    AFRAME.registerComponent('player-animator', {
+        init: function() {
+            this.model = this.el.querySelector('.model');
+            this.prevPos = new THREE.Vector3();
+            this.currentAnim = "Idle";
+        },
+        tick: function() {
+            if (!this.model) return;
+            const currentPos = this.el.object3D.getWorldPosition(new THREE.Vector3());
+            const distSq = currentPos.distanceToSquared(this.prevPos);
+            
+            if (distSq > 0.0001) { 
+                if (this.currentAnim !== "Walking") {
+                    this.model.setAttribute('animation-mixer', 'clip: Walking; crossFadeDuration: 0.2; loop: repeat');
+                    this.currentAnim = "Walking";
+                }
+            } else {
+                if (this.currentAnim !== "Idle") {
+                    this.model.setAttribute('animation-mixer', 'clip: Idle; crossFadeDuration: 0.2; loop: repeat');
+                    this.currentAnim = "Idle";
+                }
+            }
+            this.prevPos.copy(currentPos);
+        }
+    });
+
+    // 3. GAME LOGIC
+    AFRAME.registerComponent('click-answer', {
+        schema: { index: {type: 'int', default: 0} },
+        init: function () {
+            this.el.addEventListener('click', () => {
+                if (window.gameSocket && window.gameSocket.connected) {
+                    window.gameSocket.emit('submit_answer', this.data.index);
+                    this.el.setAttribute('scale', '0.9 0.9 0.9');
+                    setTimeout(() => this.el.setAttribute('scale', '1 1 1'), 150);
+                }
+            });
+        }
+    });
+
+    AFRAME.registerComponent('random-spawn', {
+      init: function () {
+        this.el.setAttribute('position', `${(Math.random() * 6) - 3} 1.7 ${(Math.random() * 4)}`);
+      }
+    });
+
+    // 4. BOOTSTRAP
+    window.addEventListener('load', function() {
+        console.log("Connecting...");
+        
+        NAF.schemas.add({
+            template: '#avatar-template',
+            components: [
+                'position', 
+                'rotation',
+                { component: 'sync-name', property: 'name' } 
+            ]
+        });
+
+        window.gameSocket = window.ioGame("http://localhost:8001"); 
+        
+        window.gameSocket.on('connect', () => {
+            const params = new URLSearchParams(window.location.search);
+            window.gameSocket.emit('join_game', { name: params.get('username') || 'Guest' });
+        });
+
+        window.gameSocket.on('show_question', (data) => {
+            const text = `${data.q}\n\nA: ${data.options[0]}   B: ${data.options[1]}\nC: ${data.options[2]}   D: ${data.options[3]}`;
+            const screen = document.querySelector('#screen-text');
+            if(screen) screen.setAttribute('text', { value: text, color: 'white' });
+            
+            document.querySelector('#timer-bar').setAttribute('width', 9);
+            document.querySelector('#timer-bar').setAttribute('color', '#00ff00');
+            document.querySelector('#answer-buttons').setAttribute('visible', true);
+            
+            document.querySelectorAll('[click-answer]').forEach(el => el.setAttribute('scale', '1 1 1'));
+        });
+
+        window.gameSocket.on('timer_update', (timeLeft) => {
+            const width = (timeLeft / 15) * 9;
+            const bar = document.querySelector('#timer-bar');
+            if(bar) {
+                bar.setAttribute('width', width);
+                if(timeLeft <= 5) bar.setAttribute('color', 'red');
+            }
+        });
+
+        window.gameSocket.on('show_results', (data) => {
+            document.querySelector('#screen-text').setAttribute('text', { value: `Time's Up!\nCorrect: Option ${data.correct_option + 1}` });
+            document.querySelector('#answer-buttons').setAttribute('visible', false);
+        });
+    });
+  </script>
+</body>
+</html>
