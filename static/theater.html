@@ -68,7 +68,9 @@
 </head>
 
 <body>
-  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;">
+  <div id="hidden-ar-button" style="display: none;"></div>
+
+  <a-scene auto-connect vr-mode-ui="enterARButton: #hidden-ar-button;">
     
     <a-assets>
       <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r147/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
