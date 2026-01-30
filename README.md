@@ -24,6 +24,24 @@ static/                # Frontend static files
 
 ## Quick Start
 
+Just run the `run.sh` script to install dependencies and start both servers.
+
+```bash
+./run.sh
+```
+
+This will:
+1. Install Python dependencies.
+2. Install Node.js dependencies.
+3. Start the avatar server.
+4. Start the game server.
+
+When you stop the script (with Ctrl+C), it will stop both servers.
+
+### Manual Start
+
+If you prefer to run the servers manually:
+
 ### 1. Install Dependencies
 
 **Python:**
@@ -48,7 +66,7 @@ node server.js
 
 **Game Server (Terminal 2):**
 ```bash
-python3 -m uvicorn main:app --host 0.0.0.0 --port 8000
+python main.py
 ```
 
 ### 3. Open in Browser

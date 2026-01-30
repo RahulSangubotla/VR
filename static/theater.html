@@ -16,7 +16,7 @@
 </head>
 
 <body>
-  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc; serverURL: http://localhost:8081;">
+  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc; serverURL: http://10.164.86.65:8081;">
     
     <a-assets>
       <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
@@ -179,7 +179,7 @@
             ]
         });
 
-        window.gameSocket = window.ioGame("http://localhost:8001"); 
+        window.gameSocket = window.ioGame("http://10.164.86.65:8001"); 
         
         window.gameSocket.on('connect', () => {
             const params = new URLSearchParams(window.location.search);

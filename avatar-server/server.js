@@ -15,6 +15,6 @@ const rtc = easyrtc.listen(app, io, null, (err, rtcRef) => {
     console.log("Avatar Server (v2.5) Ready on Port 8081");
 });
 
-server.listen(8081, () => {
-    console.log("Listening on *:8081");
+server.listen(8081, "0.0.0.0", () => {
+    console.log("Avatar Server listening on 0.0.0.0:8081 (accessible to local network)");
 });
