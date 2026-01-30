@@ -2,10 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - High Contrast</title>
+  <title>VR Kahoot - 15x15 Physics</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
   <script>window.ioGame = window.io;</script> 
@@ -16,7 +17,7 @@
 </head>
 
 <body>
-  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;">
+  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;" physics="debug: false">
     
     <a-assets>
       <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
@@ -31,7 +32,6 @@
                         position="0 -1.6 0"
                         animation-mixer="clip: Idle; crossFadeDuration: 0.4">
               </a-entity>
-              
               <a-text class="nametag" value="Loading..." align="center" position="0 0.8 0" rotation="0 180 0" scale="0.5 0.5 0.5" color="yellow" side="double"></a-text>
           </a-entity>
         </a-entity>
@@ -43,14 +43,14 @@
     <a-entity light="type: ambient; color: #BBB; intensity: 0.7"></a-entity>
     <a-entity light="type: point; color: #FFF; intensity: 0.4" position="0 4 0"></a-entity>
     
-    <a-plane position="0 0 -4" rotation="-90 0 0" width="50" height="50" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
+    <a-plane static-body position="0 0 0" rotation="-90 0 0" width="15" height="15" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
 
-    <a-plane position="0 5 -12" width="50" height="15" color="#FFFFFF"></a-plane>
-    <a-plane position="-25 5 -4" rotation="0 90 0" width="50" height="15" color="#FFFFFF"></a-plane>
-    <a-plane position="25 5 -4" rotation="0 -90 0" width="50" height="15" color="#FFFFFF"></a-plane>
-    <a-plane position="0 5 15" rotation="0 180 0" width="50" height="15" color="#FFFFFF"></a-plane>
+    <a-plane static-body position="0 5 -7.5" width="15" height="15" color="#FFFFFF"></a-plane>
+    <a-plane static-body position="-7.5 5 0" rotation="0 90 0" width="15" height="15" color="#FFFFFF"></a-plane>
+    <a-plane static-body position="7.5 5 0" rotation="0 -90 0" width="15" height="15" color="#FFFFFF"></a-plane>
+    <a-plane static-body position="0 5 7.5" rotation="0 180 0" width="15" height="15" color="#FFFFFF"></a-plane>
 
-    <a-entity position="0 4 -9.9">
+    <a-entity position="0 4 -7.4">
         <a-box width="9.2" height="5.2" depth="0.1" color="#222"></a-box>
         <a-plane position="0 0 0.06" width="9" height="5" color="#000"></a-plane>
         <a-box id="timer-bar" position="0 2.3 0.1" width="9" height="0.2" depth="0.01" color="#00ff00"></a-box>
@@ -67,6 +67,7 @@
     <a-entity id="player" 
               networked="template:#avatar-template; attachTemplateToLocal:true;"
               camera look-controls wasd-controls 
+              kinematic-body
               random-spawn
               position="0 1.7 0">
         <a-entity cursor="fuse: false"
@@ -78,12 +79,11 @@
   </a-scene>
 
   <script>
-    // 1. NAME SYNC (Includes Retry Logic)
+    // 1. NAME SYNC
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
             this.trySetName();
-            // Retry twice in case network is slow
             setTimeout(() => this.trySetName(), 500);
             setTimeout(() => this.trySetName(), 1500);
         },
@@ -92,8 +92,6 @@
                 const params = new URLSearchParams(window.location.search);
                 const myName = params.get('username') || 'Guest'; 
                 this.el.setAttribute('sync-name', 'name', myName);
-                
-                // Hide my own body locally
                 const visuals = this.el.querySelector('.visuals');
                 if (visuals) visuals.setAttribute('visible', false);
             }
@@ -109,7 +107,6 @@
             for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
             let color = '#';
             for (let i = 0; i < 3; i++) color += ('00' + ((hash >> (i * 8)) & 0xFF).toString(16)).substr(-2);
-            
             const apply = () => {
                 const obj = this.el.getObject3D('mesh');
                 if (obj) obj.traverse(n => { if (n.isMesh) n.material.color.set(color); });
@@ -160,16 +157,15 @@
         }
     });
 
+    // Updated spawn range for 15x15 boundaries
     AFRAME.registerComponent('random-spawn', {
       init: function () {
-        this.el.setAttribute('position', `${(Math.random() * 6) - 3} 1.7 ${(Math.random() * 4)}`);
+        this.el.setAttribute('position', `${(Math.random() * 10) - 5} 1.7 ${(Math.random() * 10) - 5}`);
       }
     });
 
     // 4. BOOTSTRAP
     window.addEventListener('load', function() {
-        console.log("Connecting...");
-        
         NAF.schemas.add({
             template: '#avatar-template',
             components: [
@@ -180,7 +176,6 @@
         });
 
         window.gameSocket = window.ioGame(`${window.location.protocol}//${window.location.hostname}:8080`);
-        
         
         window.gameSocket.on('connect', () => {
             const params = new URLSearchParams(window.location.search);
@@ -195,7 +190,6 @@
             document.querySelector('#timer-bar').setAttribute('width', 9);
             document.querySelector('#timer-bar').setAttribute('color', '#00ff00');
             document.querySelector('#answer-buttons').setAttribute('visible', true);
-            
             document.querySelectorAll('[click-answer]').forEach(el => el.setAttribute('scale', '1 1 1'));
         });
 
@@ -213,14 +207,13 @@
             document.querySelector('#answer-buttons').setAttribute('visible', false);
         });
     });
-    const serverUrl = `${window.location.protocol}//${window.location.hostname}:8081`; // Port 8081 for Avatar server
 
+    const serverUrl = `${window.location.protocol}//${window.location.hostname}:8081`;
     document.querySelector('a-scene').setAttribute('networked-scene', {
-    room: 'kahoot-vr-room',
-    adapter: 'wseasyrtc',
-    serverURL: serverUrl
+        room: 'kahoot-vr-room',
+        adapter: 'wseasyrtc',
+        serverURL: serverUrl
     });
   </script>
-  
 </body>
 </html>
