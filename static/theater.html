@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Gamepad Enabled</title>
+  <title>VR Kahoot - Gamepad Enabled (Fixed)</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -96,9 +96,8 @@
   </a-scene>
 
   <script>
-    // --- 1. GAMEPAD LOGIC (New) ---
+    // --- 1. GAMEPAD LOGIC ---
     
-    // Move relative to Camera View
     AFRAME.registerComponent('gamepad-move', {
       schema: { speed: {default: 5.0}, deadzone: {default: 0.15} },
       init: function() {
@@ -116,7 +115,6 @@
         if (Math.abs(z) < this.data.deadzone) z = 0;
         if (x === 0 && z === 0) return;
 
-        // Get Rig rotation and Camera rotation combined
         const angle = this.camera.object3D.rotation.y + this.el.object3D.rotation.y;
 
         const moveX = x * Math.cos(angle) + z * Math.sin(angle);
@@ -128,7 +126,6 @@
       }
     });
 
-    // Right Stick Look
     AFRAME.registerComponent('gamepad-look', {
         schema: { sensitivity: {default: 2.0} },
         tick: function (time, dt) {
@@ -136,7 +133,7 @@
             const gp = gamepads[0] || gamepads[1];
             if (!gp) return;
             
-            const lookX = gp.axes[2]; // Right Stick
+            const lookX = gp.axes[2]; 
             if (Math.abs(lookX) < 0.1) return;
 
             const rotation = this.el.getAttribute('rotation');
@@ -145,10 +142,9 @@
         }
     });
 
-    // Button A Clicker
     AFRAME.registerComponent('gamepad-clicker', {
         init: function() {
-            this.cursorEl = document.querySelector('[raycaster]'); // Find the raycaster
+            this.cursorEl = document.querySelector('[raycaster]');
             this.buttonPressed = false;
         },
         tick: function() {
@@ -171,25 +167,33 @@
         }
     });
 
-    // --- 2. CORE LOGIC (Updated for New Rig) ---
+    // --- 2. CORE LOGIC ---
 
     AFRAME.registerComponent('rig-follow', {
+      init: function() {
+        // Create reuseable objects to prevent garbage collection
+        this.camPos = new THREE.Vector3();
+        this.camQuat = new THREE.Quaternion();
+        this.camEuler = new THREE.Euler();
+        this.camEuler.order = 'YXZ'; // Important for getting correct Y rotation
+      },
       tick: function () {
         const cam = document.querySelector('#main-camera');
         if (!cam) return;
         
-        // Sync networked avatar to Camera World Position (Head height)
-        // This ensures the avatar model (which has a -1.6 offset) sits on the floor correctly.
-        const camPos = new THREE.Vector3();
-        cam.object3D.getWorldPosition(camPos);
-        this.el.setAttribute('position', camPos);
+        // 1. Sync Position
+        cam.object3D.getWorldPosition(this.camPos);
+        this.el.setAttribute('position', this.camPos);
         
-        // Sync Y rotation
-        const camRot = new THREE.Euler();
-        cam.object3D.getWorldQuaternion(new THREE.Quaternion()).setFromQuaternion(cam.object3D.quaternion, 'YXZ');
-        // We calculate world rotation manually
-        const worldRotY = document.querySelector('#local-rig').object3D.rotation.y + cam.object3D.rotation.y;
-        this.el.setAttribute('rotation', {x: 0, y: (worldRotY * 180 / Math.PI), z: 0});
+        // 2. Sync Rotation (FIXED)
+        // Get the World Quaternion of the camera
+        cam.object3D.getWorldQuaternion(this.camQuat);
+        
+        // Convert that Quaternion to Euler angles to get the Y component
+        this.camEuler.setFromQuaternion(this.camQuat);
+        
+        // Apply only the Y rotation to the avatar
+        this.el.object3D.rotation.y = this.camEuler.y;
       }
     });
 
@@ -284,7 +288,6 @@
 
     AFRAME.registerComponent('random-spawn', {
       init: function () {
-        // Spawn at Y=0 because the rig handles the height now
         this.el.setAttribute('position', `${(Math.random() * 12) - 6} 0 ${(Math.random() * 12) - 6}`);
       }
     });
