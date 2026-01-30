@@ -149,7 +149,7 @@
         },
         tick: function() {
             const gamepads = navigator.getGamepads();
-            const gp = gamepads[0] || gamepads[1];
+            const gp = gamepads[0];
             if (!gp || !this.cursorEl) return;
 
             if (gp.buttons[0].pressed) {
