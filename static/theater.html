@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Fixed Mobile</title>
+  <title>VR Kahoot - Final Fix</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -15,10 +15,10 @@
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
 
   <style>
-    /* SAFELY HIDE AR BUTTON */
-    .a-enter-ar-button {
-        display: none !important;
-    }
+    /* FIX 1: BLUE SCREEN & AR BUTTON */
+    /* We use CSS to hide the button instead of the code that caused the crash */
+    .a-enter-ar-button { display: none !important; }
+    .a-enter-vr-button { bottom: 20px !important; }
   </style>
 </head>
 
@@ -30,7 +30,7 @@
 
       <template id="avatar-template">
         <a-entity class="avatar" sync-name player-animator>
-          <a-entity class="visuals" ground-lock>
+          <a-entity class="visuals" visible="false" ground-lock>
               <a-entity class="model"
                         gltf-model="#robot-model" 
                         scale="0.3 0.3 0.3" 
@@ -82,30 +82,32 @@
   </a-scene>
 
   <script>
-    // 1. GROUND LOCK (Fixes Flying Avatar on Mobile)
+    // FIX 2 & 3: GROUND LOCK
+    // This forces the avatar to stay at Y=0 (Ground) and ignores camera tilt (Pitch)
     AFRAME.registerComponent('ground-lock', {
       tick: function () {
         if (!this.el.parentElement) return;
         
-        var parentObj = this.el.parentElement.object3D; // The Camera/Player wrapper
-        var myObj = this.el.object3D; // The Avatar Model
+        var parentObj = this.el.parentElement.object3D;
+        var myObj = this.el.object3D;
         
         var parentPos = new THREE.Vector3();
         var parentQuat = new THREE.Quaternion();
         parentObj.getWorldPosition(parentPos);
         parentObj.getWorldQuaternion(parentQuat);
 
-        // Get Y-rotation (Yaw) only
+        // Extract only Y-axis rotation (Left/Right)
         var euler = new THREE.Euler();
         euler.setFromQuaternion(parentQuat, 'YXZ');
 
-        // Force position to floor (y=0) and rotation to be upright
+        // Force Position to Floor (Y=0)
+        // Force Rotation to Upright (Pitch=0, Roll=0)
         myObj.position.set(parentPos.x, 0, parentPos.z);
         myObj.rotation.set(0, euler.y, 0);
       }
     });
 
-    // 2. WALL COLLIDER (Fixes Walls)
+    // 1. WALL COLLIDER (Keeps you inside the room)
     AFRAME.registerComponent('wall-collider', {
       schema: {
         width: {default: 15},
@@ -123,7 +125,7 @@
       }
     });
 
-    // 3. NAME SYNC
+    // 2. NAME SYNC (Controls Visibility)
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
@@ -137,9 +139,13 @@
                 const myName = params.get('username') || 'Guest'; 
                 this.el.setAttribute('sync-name', 'name', myName);
                 
-                // Keep visuals visible so ground-lock works, 
-                // but hide the inner model if it blocks your view
-                // this.el.querySelector('.model').setAttribute('visible', false); 
+                // FIX 4: SELF VISIBILITY
+                // If it is MINE, we do nothing (it defaults to visible=false in template)
+                // This guarantees you never see your own body.
+            } else {
+                // If it is SOMEONE ELSE, we make them visible.
+                const visuals = this.el.querySelector('.visuals');
+                if (visuals) visuals.setAttribute('visible', true);
             }
         },
         update: function() {
@@ -162,7 +168,7 @@
         }
     });
 
-    // 4. ANIMATOR
+    // 3. ANIMATOR
     AFRAME.registerComponent('player-animator', {
         init: function() {
             this.model = this.el.querySelector('.model');
@@ -190,7 +196,7 @@
         }
     });
 
-    // 5. GAME LOGIC
+    // 4. GAME LOGIC
     AFRAME.registerComponent('click-answer', {
         schema: { index: {type: 'int', default: 0} },
         init: function () {
