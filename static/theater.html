@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Final Fix</title>
+  <title>VR Kahoot - Fixed Bounds</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -13,13 +13,6 @@
 
   <script src="https://unpkg.com/easyrtc@1.1.0/api/easyrtc.js"></script>
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
-
-  <style>
-    /* FIX 1: BLUE SCREEN & AR BUTTON */
-    /* We use CSS to hide the button instead of the code that caused the crash */
-    .a-enter-ar-button { display: none !important; }
-    .a-enter-vr-button { bottom: 20px !important; }
-  </style>
 </head>
 
 <body>
@@ -30,14 +23,15 @@
 
       <template id="avatar-template">
         <a-entity class="avatar" sync-name player-animator>
-          <a-entity class="visuals" visible="false" ground-lock>
+          <a-entity class="visuals">
               <a-entity class="model"
                         gltf-model="#robot-model" 
                         scale="0.3 0.3 0.3" 
                         rotation="0 180 0"
+                        position="0 -1.6 0"
                         animation-mixer="clip: Idle; crossFadeDuration: 0.4">
               </a-entity>
-              <a-text class="nametag" value="Loading..." align="center" position="0 2.4 0" rotation="0 180 0" scale="0.5 0.5 0.5" color="yellow" side="double"></a-text>
+              <a-text class="nametag" value="Loading..." align="center" position="0 0.8 0" rotation="0 180 0" scale="0.5 0.5 0.5" color="yellow" side="double"></a-text>
           </a-entity>
         </a-entity>
       </template>
@@ -45,6 +39,7 @@
 
     <a-sky color="#FFFFFF"></a-sky>
     <a-entity light="type: ambient; color: #BBB; intensity: 0.7"></a-entity>
+    <a-entity light="type: point; color: #FFF; intensity: 0.4" position="0 4 0"></a-entity>
     
     <a-plane position="0 0 0" rotation="-90 0 0" width="15" height="15" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
 
@@ -72,7 +67,7 @@
               camera look-controls wasd-controls 
               wall-collider="width: 15; length: 15"
               random-spawn
-              position="0 1.6 0">
+              position="0 1.7 0">
         <a-entity cursor="fuse: false"
                   position="0 0 -1"
                   geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
@@ -82,50 +77,30 @@
   </a-scene>
 
   <script>
-    // FIX 2 & 3: GROUND LOCK
-    // This forces the avatar to stay at Y=0 (Ground) and ignores camera tilt (Pitch)
-    AFRAME.registerComponent('ground-lock', {
-      tick: function () {
-        if (!this.el.parentElement) return;
-        
-        var parentObj = this.el.parentElement.object3D;
-        var myObj = this.el.object3D;
-        
-        var parentPos = new THREE.Vector3();
-        var parentQuat = new THREE.Quaternion();
-        parentObj.getWorldPosition(parentPos);
-        parentObj.getWorldQuaternion(parentQuat);
-
-        // Extract only Y-axis rotation (Left/Right)
-        var euler = new THREE.Euler();
-        euler.setFromQuaternion(parentQuat, 'YXZ');
-
-        // Force Position to Floor (Y=0)
-        // Force Rotation to Upright (Pitch=0, Roll=0)
-        myObj.position.set(parentPos.x, 0, parentPos.z);
-        myObj.rotation.set(0, euler.y, 0);
-      }
-    });
-
-    // 1. WALL COLLIDER (Keeps you inside the room)
+    // 1. WALL COLLIDER (The Fix)
+    // This manually checks if you go past the walls and pushes you back.
     AFRAME.registerComponent('wall-collider', {
       schema: {
         width: {default: 15},
         length: {default: 15},
-        padding: {default: 0.4}
+        padding: {default: 0.4} // Keeps you slightly away from the exact edge
       },
       tick: function () {
         const pos = this.el.object3D.position;
         const halfWidth = (this.data.width / 2) - this.data.padding;
         const halfLength = (this.data.length / 2) - this.data.padding;
+
+        // Clamp X position
         if (pos.x < -halfWidth) pos.x = -halfWidth;
         if (pos.x > halfWidth) pos.x = halfWidth;
+
+        // Clamp Z position
         if (pos.z < -halfLength) pos.z = -halfLength;
         if (pos.z > halfLength) pos.z = halfLength;
       }
     });
 
-    // 2. NAME SYNC (Controls Visibility)
+    // 2. NAME SYNC
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
@@ -138,14 +113,8 @@
                 const params = new URLSearchParams(window.location.search);
                 const myName = params.get('username') || 'Guest'; 
                 this.el.setAttribute('sync-name', 'name', myName);
-                
-                // FIX 4: SELF VISIBILITY
-                // If it is MINE, we do nothing (it defaults to visible=false in template)
-                // This guarantees you never see your own body.
-            } else {
-                // If it is SOMEONE ELSE, we make them visible.
                 const visuals = this.el.querySelector('.visuals');
-                if (visuals) visuals.setAttribute('visible', true);
+                if (visuals) visuals.setAttribute('visible', false);
             }
         },
         update: function() {
@@ -168,7 +137,7 @@
         }
     });
 
-    // 3. ANIMATOR
+    // 3. ANIMATOR (Throttled)
     AFRAME.registerComponent('player-animator', {
         init: function() {
             this.model = this.el.querySelector('.model');
@@ -212,7 +181,8 @@
 
     AFRAME.registerComponent('random-spawn', {
       init: function () {
-        this.el.setAttribute('position', `${(Math.random() * 12) - 6} 1.6 ${(Math.random() * 12) - 6}`);
+        // Spawn safely inside the 15x15 box (range -6 to 6)
+        this.el.setAttribute('position', `${(Math.random() * 12) - 6} 1.7 ${(Math.random() * 12) - 6}`);
       }
     });
 
