@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Optimized 15x15</title>
+  <title>VR Kahoot - Fixed Collisions</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -19,7 +19,7 @@
 <body>
   <a-scene 
     networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;" 
-    physics="driver: worker; workerFps: 60; debug: false;">
+    physics="driver: local; debug: true;">
     
     <a-assets>
       <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
@@ -58,17 +58,10 @@
         <a-entity id="screen-text" text="value: Waiting for Host...; align: center; width: 8; color: white" position="0 0.5 0.1"></a-entity>
     </a-entity>
 
-    <a-entity id="answer-buttons" position="0 1.5 -3" visible="false">
-        <a-box position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
-        <a-box position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
-    </a-entity>
-
     <a-entity id="player" 
               networked="template:#avatar-template; attachTemplateToLocal:true;"
               camera look-controls wasd-controls 
-              kinematic-body="radius: 0.5"
+              kinematic-body="radius: 0.5; height: 1.7"
               random-spawn
               position="0 1.7 0">
         <a-entity cursor="fuse: false"
@@ -80,7 +73,7 @@
   </a-scene>
 
   <script>
-    // 1. NAME SYNC
+    // 1. NAME SYNC (Standard)
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
@@ -117,20 +110,20 @@
         }
     });
 
-    // 2. ANIMATOR (Optimized Tick Rate)
+    // 2. ANIMATOR (Throttled for performance)
     AFRAME.registerComponent('player-animator', {
         init: function() {
             this.model = this.el.querySelector('.model');
             this.prevPos = new THREE.Vector3();
             this.currentAnim = "Idle";
-            this.tick = AFRAME.utils.throttleTick(this.tick, 100, this); // Run every 100ms instead of every frame
+            this.tick = AFRAME.utils.throttleTick(this.tick, 100, this);
         },
         tick: function() {
             if (!this.model) return;
             const currentPos = this.el.object3D.getWorldPosition(new THREE.Vector3());
             const distSq = currentPos.distanceToSquared(this.prevPos);
             
-            if (distSq > 0.0005) { // Slightly higher threshold to ignore tiny camera jitters
+            if (distSq > 0.0005) { 
                 if (this.currentAnim !== "Walking") {
                     this.model.setAttribute('animation-mixer', 'clip: Walking; crossFadeDuration: 0.2');
                     this.currentAnim = "Walking";
@@ -145,7 +138,7 @@
         }
     });
 
-    // 3. GAME LOGIC
+    // 3. GAME LOGIC & SOCKETS
     AFRAME.registerComponent('click-answer', {
         schema: { index: {type: 'int', default: 0} },
         init: function () {
@@ -163,7 +156,6 @@
       }
     });
 
-    // 4. BOOTSTRAP
     window.addEventListener('load', function() {
         NAF.schemas.add({
             template: '#avatar-template',
@@ -182,21 +174,13 @@
         });
 
         window.gameSocket.on('show_question', (data) => {
-            const text = `${data.q}\n\nA: ${data.options[0]}   B: ${data.options[1]}\nC: ${data.options[2]}   D: ${data.options[3]}`;
             const screen = document.querySelector('#screen-text');
-            if(screen) screen.setAttribute('text', { value: text, color: 'white' });
-            document.querySelector('#answer-buttons').setAttribute('visible', true);
+            if(screen) screen.setAttribute('text', { value: data.q });
         });
 
         window.gameSocket.on('timer_update', (timeLeft) => {
-            const width = (timeLeft / 15) * 9;
             const bar = document.querySelector('#timer-bar');
-            if(bar) bar.setAttribute('width', width);
-        });
-
-        window.gameSocket.on('show_results', (data) => {
-            document.querySelector('#screen-text').setAttribute('text', { value: `Time's Up!\nCorrect: Option ${data.correct_option + 1}` });
-            document.querySelector('#answer-buttons').setAttribute('visible', false);
+            if(bar) bar.setAttribute('width', (timeLeft / 15) * 9);
         });
     });
 
