@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Small Room & Collisions</title>
+  <title>VR Kahoot - Final Stable</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -16,12 +16,21 @@
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
 
   <style>
-    /* Hide AR Button */
-    .a-enter-ar { display: none !important; }
+    /* Hide the Enter VR button initially until loaded */
+    .a-enter-vr { z-index: 9999; }
   </style>
 
   <script>
-    // 0. AUTO CONNECT
+    // 0. SETUP ICE SERVERS (Correct way to fix AWS Lag without console warnings)
+    if (window.easyrtc) {
+        easyrtc.setSocketUrl(":8081"); // Ensure it looks at the right port
+        // Google's free STUN server helps punch through AWS firewalls
+        easyrtc.setIceConfig({
+            iceServers: [ { urls: "stun:stun1.l.google.com:19302" } ]
+        });
+    }
+
+    // 1. AUTO CONNECT COMPONENT
     AFRAME.registerComponent('auto-connect', {
       init: function() {
         const protocol = window.location.protocol;
@@ -34,13 +43,12 @@
           room: 'kahoot-vr-room',
           adapter: 'wseasyrtc',
           serverURL: avatarServerUrl,
-          audio: true, 
-          iceServers: [ { 'urls': 'stun:stun1.l.google.com:19302' } ] 
+          audio: true
         });
       }
     });
 
-    // 5. BODY ROTATION LOCK (Keeps feet on ground)
+    // 2. BODY ROTATION LOCK
     AFRAME.registerComponent('rotate-with-camera', {
         tick: function() {
             const camera = this.el.sceneEl.querySelector('[camera]');
@@ -50,37 +58,26 @@
         }
     });
 
-    // 6. NEW: SIMPLE WALL COLLISIONS (Keeps player inside room)
+    // 3. WALL COLLISIONS
     AFRAME.registerComponent('room-bounds', {
-      schema: {
-        minX: {default: -9},
-        maxX: {default: 9},
-        minZ: {default: -9},
-        maxZ: {default: 9}
-      },
+      schema: { minX: {default: -9}, maxX: {default: 9}, minZ: {default: -9}, maxZ: {default: 9} },
       tick: function() {
         const pos = this.el.getAttribute('position');
         let blocked = false;
-
-        // Check X boundaries (Left/Right)
         if (pos.x < this.data.minX) { pos.x = this.data.minX; blocked = true; }
         if (pos.x > this.data.maxX) { pos.x = this.data.maxX; blocked = true; }
-        
-        // Check Z boundaries (Front/Back)
         if (pos.z < this.data.minZ) { pos.z = this.data.minZ; blocked = true; }
         if (pos.z > this.data.maxZ) { pos.z = this.data.maxZ; blocked = true; }
-
-        // Apply clamp if blocked
-        if (blocked) {
-            this.el.setAttribute('position', pos);
-        }
+        if (blocked) this.el.setAttribute('position', pos);
       }
     });
   </script>
 </head>
 
 <body>
-  <a-scene auto-connect vr-mode-ui="enterARButton: #void;">
+  <div id="hidden-ar-button" style="display: none;"></div>
+
+  <a-scene auto-connect vr-mode-ui="enterARButton: #hidden-ar-button;">
     
     <a-assets>
       <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
@@ -106,15 +103,10 @@
     <a-entity light="type: point; color: #FFF; intensity: 0.4" position="0 4 0"></a-entity>
     
     <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
-
     <a-plane position="0 6 0" rotation="90 0 0" width="20" height="20" color="#EEEEEE"></a-plane>
-
     <a-plane position="0 3 -10" width="20" height="6" color="#FFFFFF"></a-plane>
-    
     <a-plane position="0 3 10" rotation="0 180 0" width="20" height="6" color="#FFFFFF"></a-plane>
-    
     <a-plane position="-10 3 0" rotation="0 90 0" width="20" height="6" color="#FFFFFF"></a-plane>
-    
     <a-plane position="10 3 0" rotation="0 -90 0" width="20" height="6" color="#FFFFFF"></a-plane>
 
     <a-entity position="0 3 -9.9">
@@ -155,7 +147,7 @@
   </a-scene>
 
   <script>
-    // 1. NAME SYNC
+    // 4. NAME SYNC
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
@@ -168,23 +160,20 @@
                 const params = new URLSearchParams(window.location.search);
                 const myName = params.get('username') || 'Guest'; 
                 this.el.setAttribute('sync-name', 'name', myName);
-                
                 const visuals = this.el.querySelector('.visuals');
                 if (visuals) visuals.setAttribute('visible', false);
             }
         },
         update: function() {
-            const name = this.data.name;
             const textEl = this.el.querySelector('.nametag');
-            if (textEl) textEl.setAttribute('value', name);
-            this.updateColor(name);
+            if (textEl) textEl.setAttribute('value', this.data.name);
+            this.updateColor(this.data.name);
         },
         updateColor: function(name) {
             let hash = 0;
             for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
             let color = '#';
             for (let i = 0; i < 3; i++) color += ('00' + ((hash >> (i * 8)) & 0xFF).toString(16)).substr(-2);
-            
             const apply = () => {
                 const obj = this.el.getObject3D('mesh');
                 if (obj) obj.traverse(n => { if (n.isMesh) n.material.color.set(color); });
@@ -194,7 +183,7 @@
         }
     });
 
-    // 2. ANIMATOR
+    // 5. ANIMATOR
     AFRAME.registerComponent('player-animator', {
         init: function() {
             this.model = this.el.querySelector('.model');
@@ -224,7 +213,7 @@
         }
     });
 
-    // 3. GAME LOGIC
+    // 6. GAME LOGIC
     AFRAME.registerComponent('click-answer', {
         schema: { index: {type: 'int', default: 0} },
         init: function () {
@@ -244,20 +233,14 @@
       }
     });
 
-    // 4. BOOTSTRAP
+    // 7. BOOTSTRAP
     window.addEventListener('load', function() {
         console.log("Connecting...");
-        
         NAF.schemas.add({
             template: '#avatar-template',
-            components: [
-                'position', 
-                'rotation',
-                { component: 'sync-name', property: 'name' } 
-            ]
+            components: ['position', 'rotation', { component: 'sync-name', property: 'name' }]
         });
 
-        // Use dynamic URL for Game Server (Port 8080)
         window.gameSocket = window.ioGame(`${window.location.protocol}//${window.location.hostname}:8080`);
         
         window.gameSocket.on('connect', () => {
@@ -273,7 +256,6 @@
             document.querySelector('#timer-bar').setAttribute('width', 9);
             document.querySelector('#timer-bar').setAttribute('color', '#00ff00');
             document.querySelector('#answer-buttons').setAttribute('visible', true);
-            
             document.querySelectorAll('[click-answer]').forEach(el => el.setAttribute('scale', '1 1 1'));
         });
 
