@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Fixed Controls</title>
+  <title>VR Kahoot - Fixed Movement</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -15,9 +15,7 @@
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
   
   <style>
-    .a-enter-ar-button {
-        display: none !important;
-    }
+    .a-enter-ar-button { display: none !important; }
   </style>
 </head>
 
@@ -62,22 +60,23 @@
     </a-entity>
 
     <a-entity id="answer-buttons" position="0 1.5 -3" visible="false">
-        <a-box position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
-        <a-box position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box class="clickable" position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box class="clickable" position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box class="clickable" position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
+        <a-box class="clickable" position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
     </a-entity>
 
     <a-entity id="local-rig" 
-              gamepad-move="speed: 4.0; invertX: true"
-              gamepad-look="sensitivity: 2.0"
-              gamepad-interaction
-              wasd-controls
+              wasd-controls="fly: false" 
+              gamepad-move="speed: 4.0;"
+              gamepad-look="sensitivity: 2.5"
+              gamepad-clicker
               wall-collider="width: 15; length: 15"
               random-spawn
               position="0 1.7 0">
-        <a-entity camera look-controls="pointerLockEnabled: false">
-            <a-entity cursor="fuse: false; rayOrigin: entity"
+        
+        <a-entity camera position="0 1.6 0" look-controls="pointerLockEnabled: false">
+            <a-entity cursor="fuse: false"
                       raycaster="objects: .clickable"
                       position="0 0 -1"
                       geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
@@ -94,48 +93,56 @@
   </a-scene>
 
   <script>
-    // --- 1. GAMEPAD MOVE (Left Stick with Inversion Fix) ---
+    // --- 1. CRITICAL FIX: ROBUST GAMEPAD MOVE ---
+    // Uses Three.js vectors to move exactly where the camera is facing.
     AFRAME.registerComponent('gamepad-move', {
       schema: {
           speed: {default: 4.0},
-          deadzone: {default: 0.1},
-          invertX: {default: false} // Ensure this is true in HTML if left goes right
+          deadzone: {default: 0.2} // Increased deadzone to prevent drift
       },
       init: function() {
           this.camera = document.querySelector('[camera]');
+          this.forward = new THREE.Vector3();
+          this.right = new THREE.Vector3();
+          this.moveDir = new THREE.Vector3();
       },
       tick: function(time, dt) {
           const gamepads = navigator.getGamepads();
-          const gamepad = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3]; // Check all slots
-          if (!gamepad) return;
+          // Check all 4 slots just in case
+          const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
+          if (!gp) return;
 
-          // Standard Xbox mappings: 0 is Left Stick X, 1 is Left Stick Y
-          let x = gamepad.axes[0];
-          let z = gamepad.axes[1];
+          // Standard mapping: Axis 0 = Left/Right, Axis 1 = Up/Down
+          let inputX = gp.axes[0]; 
+          let inputZ = gp.axes[1]; 
 
-          if (Math.abs(x) < this.data.deadzone) x = 0;
-          if (Math.abs(z) < this.data.deadzone) z = 0;
+          // Deadzone check
+          if (Math.abs(inputX) < this.data.deadzone) inputX = 0;
+          if (Math.abs(inputZ) < this.data.deadzone) inputZ = 0;
 
-          // Apply the fix
-          if (this.data.invertX) x *= -1; 
+          if (inputX === 0 && inputZ === 0) return;
 
-          if (x === 0 && z === 0) return;
+          // 1. Get Camera's World Direction (The "Real" Forward)
+          this.camera.object3D.getWorldDirection(this.forward);
+          this.forward.y = 0; // Flatten to ground (no flying)
+          this.forward.normalize();
 
-          // Move relative to camera direction
-          const camRot = this.camera.getAttribute('rotation');
-          const angle = camRot.y * (Math.PI / 180);
+          // 2. Calculate Right Vector
+          this.right.crossVectors(this.forward, this.camera.object3D.up).normalize();
+
+          // 3. Combine Inputs
+          // Forward/Back moves along 'forward' vector
+          // Left/Right moves along 'right' vector
+          this.moveDir.set(0, 0, 0);
+          this.moveDir.addScaledVector(this.forward, -inputZ); // -Z is forward in joystick logic usually
+          this.moveDir.addScaledVector(this.right, inputX);    // +X is right
+
+          // 4. Apply Movement to Rig
+          const dTime = dt / 1000;
+          const speed = this.data.speed;
           
-          const x_prime = x * Math.cos(angle) + z * Math.sin(angle);
-          const z_prime = z * Math.cos(angle) - x * Math.sin(angle);
-
-          const pos = this.el.getAttribute('position');
-          const speed = this.data.speed * (dt / 1000); 
-
-          this.el.setAttribute('position', {
-              x: pos.x + x_prime * speed,
-              y: pos.y,
-              z: pos.z + z_prime * speed
-          });
+          this.el.object3D.position.x += this.moveDir.x * speed * dTime;
+          this.el.object3D.position.z += this.moveDir.z * speed * dTime;
       }
     });
 
@@ -147,7 +154,7 @@
             const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
             if (!gp) return;
             
-            // Axis 2 is usually Right Stick X
+            // Axis 2 is Right Stick X (Horizontal)
             const lookX = gp.axes[2];
             const dt = timeDelta / 1000;
             
@@ -159,8 +166,8 @@
         }
     });
 
-    // --- 3. GAMEPAD INTERACTION ('A' Button to Click) ---
-    AFRAME.registerComponent('gamepad-interaction', {
+    // --- 3. GAMEPAD CLICKER ('A' Button) ---
+    AFRAME.registerComponent('gamepad-clicker', {
         init: function() {
             this.cursorEl = this.el.querySelector('[cursor]');
             this.buttonPressed = false;
@@ -170,32 +177,35 @@
             const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
             if (!gp) return;
 
-            // Button 0 is 'A' on Xbox
+            // Button 0 is usually 'A' on Xbox
             if (gp.buttons[0].pressed) {
                 if (!this.buttonPressed) {
-                    this.clickObject();
+                    this.triggerClick();
                     this.buttonPressed = true;
                 }
             } else {
                 this.buttonPressed = false;
             }
         },
-        clickObject: function() {
-            if (!this.cursorEl || !this.cursorEl.components.raycaster) return;
-            const intersections = this.cursorEl.components.raycaster.intersectedEls;
-            if (intersections.length > 0) {
-                intersections[0].emit('click');
-                // Visual feedback
-                const oldColor = this.cursorEl.getAttribute('material').color;
-                this.cursorEl.setAttribute('material', 'color', 'yellow');
+        triggerClick: function() {
+            if (!this.cursorEl) return;
+            const raycaster = this.cursorEl.components.raycaster;
+            if (raycaster && raycaster.intersectedEls.length > 0) {
+                const target = raycaster.intersectedEls[0];
+                target.emit('click');
+                
+                // Visual Flash
+                const mat = this.cursorEl.getAttribute('material');
+                const oldColor = mat.color;
+                this.cursorEl.setAttribute('material', 'color', '#e74c3c');
                 setTimeout(() => {
                     this.cursorEl.setAttribute('material', 'color', oldColor);
-                }, 150);
+                }, 100);
             }
         }
     });
 
-    // --- 4. EXISTING COMPONENTS (Sync Name, etc.) ---
+    // --- 4. UTILS (Sync Name, Bounds, etc) ---
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
