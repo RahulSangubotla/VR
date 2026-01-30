@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Final Stable</title>
+  <title>VR Kahoot - Production Ready</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -21,6 +21,15 @@
   </style>
 
   <script>
+    // 0. SETUP ICE SERVERS (Critical for AWS)
+    if (window.easyrtc) {
+        easyrtc.setSocketUrl(":8081"); 
+        // Google's STUN server helps punch through AWS firewalls
+        easyrtc.setIceConfig({
+            iceServers: [ { urls: "stun:stun1.l.google.com:19302" } ]
+        });
+    }
+
     // 1. AUTO CONNECT
     AFRAME.registerComponent('auto-connect', {
       init: function() {
@@ -35,13 +44,12 @@
           adapter: 'wseasyrtc',
           serverURL: avatarServerUrl,
           audio: true,
-          // We put this back here. It works on AWS. Ignore the console warning.
           iceServers: [ { 'urls': 'stun:stun1.l.google.com:19302' } ] 
         });
       }
     });
 
-    // 2. BODY ROTATION LOCK
+    // 2. BODY ROTATION LOCK (Keeps you upright)
     AFRAME.registerComponent('rotate-with-camera', {
         tick: function() {
             const camera = this.el.sceneEl.querySelector('[camera]');
@@ -51,7 +59,7 @@
         }
     });
 
-    // 3. SMOOTH WALL COLLISIONS (Fixes "Messed Up Controls")
+    // 3. SMOOTH WALL COLLISIONS
     AFRAME.registerComponent('room-bounds', {
       schema: { 
         minX: {default: -9.5}, maxX: {default: 9.5}, 
@@ -59,7 +67,7 @@
       },
       tick: function() {
         const pos = this.el.object3D.position;
-        // Push back slightly (0.1m) so controls don't get "sticky"
+        // Soft push-back so you don't get stuck
         if (pos.x < this.data.minX) pos.x = this.data.minX + 0.1;
         if (pos.x > this.data.maxX) pos.x = this.data.maxX - 0.1;
         if (pos.z < this.data.minZ) pos.z = this.data.minZ + 0.1;
@@ -143,7 +151,7 @@
   </a-scene>
 
   <script>
-    // 4. NAME SYNC (Modified to SHOW model for local player testing)
+    // 4. NAME SYNC (RESTORED VISIBILITY LOGIC)
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
@@ -163,10 +171,11 @@
                 const myName = params.get('username') || 'Guest'; 
                 this.el.setAttribute('sync-name', 'name', myName);
                 
-                // --- DEBUG: VISIBLE MODEL ---
-                // Keeping this visible so you can verify the robot loads.
-                // const visuals = this.el.querySelector('.visuals');
-                // if (visuals) visuals.setAttribute('visible', false);
+                // === FIX: HIDE SELF LOCALLY ===
+                // This hides the robot model ONLY for you, so you don't block your own camera.
+                // Other players will still see you because isMine() is false for them.
+                const visuals = this.el.querySelector('.visuals');
+                if (visuals) visuals.setAttribute('visible', false);
             }
         },
         update: function() {
