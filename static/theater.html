@@ -1,296 +1,627 @@
+<a-entity id="rig" 
+          movement-controls="speed: 0.2; fly: false" 
+          gamepad-look="sensitivity: 2.0" 
+          position="0 0 3" 
+          room-bounds>
+    
+    <a-entity camera position="0 1.6 0" look-controls="pointerLockEnabled: false">
+        </a-entity>
+
+</a-entity>
+
+```
+
+I have applied this fix to the full code below. I also kept your custom `gamepad-look` component because `movement-controls` handles looking differently, and your custom script is specifically tuned for the right stick on axis 2.
+
+### Full Updated Code
+
+```html
 <!DOCTYPE html>
 <html>
-<head>
-  <meta charset="utf-8">
-  <title>VR Kahoot - Xbox Controller Support</title>
-  
-  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-  <script>window.ioGame = window.io;</script> 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.5.0/socket.io.slim.js"></script>
-
-  <script src="https://unpkg.com/easyrtc@1.1.0/api/easyrtc.js"></script>
-  <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
-  
-  <style>
-    .a-enter-ar-button {
-        display: none !important;
-    }
-  </style>
-</head>
-
-<body>
-  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;">
+  <head>
+    <title>VR Lab - Final Integrated</title>
     
-    <a-assets>
-      <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
-
-      <template id="avatar-template">
-        <a-entity class="avatar" sync-name player-animator>
-          <a-entity class="visuals">
-              <a-entity class="model"
-                        gltf-model="#robot-model" 
-                        scale="0.3 0.3 0.3" 
-                        rotation="0 180 0"
-                        position="0 -1.6 0"
-                        animation-mixer="clip: Idle; crossFadeDuration: 0.4">
-              </a-entity>
-              <a-text class="nametag" value="Loading..." align="center" position="0 0.8 0" rotation="0 180 0" scale="0.5 0.5 0.5" color="yellow" side="double"></a-text>
-          </a-entity>
-        </a-entity>
-      </template>
-    </a-assets>
-
-    <a-sky color="#FFFFFF"></a-sky>
-    <a-entity light="type: ambient; color: #BBB; intensity: 0.7"></a-entity>
-    <a-entity light="type: point; color: #FFF; intensity: 0.4" position="0 4 0"></a-entity>
-    
-    <a-plane position="0 0 0" rotation="-90 0 0" width="15" height="15" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
-
-    <a-plane position="0 5 -7.5" width="15" height="15" color="#FFFFFF"></a-plane>
-    <a-plane position="-7.5 5 0" rotation="0 90 0" width="15" height="15" color="#FFFFFF"></a-plane>
-    <a-plane position="7.5 5 0" rotation="0 -90 0" width="15" height="15" color="#FFFFFF"></a-plane>
-    <a-plane position="0 5 7.5" rotation="0 180 0" width="15" height="15" color="#FFFFFF"></a-plane>
-
-    <a-entity position="0 4 -7.4">
-        <a-box width="9.2" height="5.2" depth="0.1" color="#222"></a-box>
-        <a-plane position="0 0 0.06" width="9" height="5" color="#000"></a-plane>
-        <a-box id="timer-bar" position="0 2.3 0.1" width="9" height="0.2" depth="0.01" color="#00ff00"></a-box>
-        <a-entity id="screen-text" text="value: Waiting for Host...; align: center; width: 8; color: white" position="0 0.5 0.1"></a-entity>
-    </a-entity>
-
-    <a-entity id="answer-buttons" position="0 1.5 -3" visible="false">
-        <a-box position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
-        <a-box position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
-    </a-entity>
-
-    <a-entity id="local-rig" 
-              movement-controls="controls: gamepad, keyboard; speed: 0.3"
-              look-controls
-              gamepad-interaction
-              wall-collider="width: 15; length: 15"
-              random-spawn
-              position="0 1.7 0">
-        <a-entity cursor="fuse: false; rayOrigin: entity"
-                  raycaster="objects: .clickable"
-                  position="0 0 -1"
-                  geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
-                  material="color: #3BB143; shader: flat">
-        </a-entity>
-    </a-entity>
-
-    <a-entity id="player-avatar"
-              networked="template:#avatar-template; attachTemplateToLocal:true;"
-              rig-follow>
-    </a-entity>
-
-  </a-scene>
-
-  <script>
-    // --- NEW: GAMEPAD INTERACTION COMPONENT ---
-    AFRAME.registerComponent('gamepad-interaction', {
-      init: function() {
-        // Find the cursor entity inside this rig
-        this.cursorEl = this.el.querySelector('[cursor]');
-        this.buttonPressed = false;
-      },
-      tick: function() {
-        const gamepads = navigator.getGamepads();
-        if (!gamepads) return;
-
-        // Check the first connected gamepad
-        const gamepad = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
-        if (!gamepad) return;
-
-        // Button 0 is usually 'A' on Xbox or 'Cross' on PS controllers
-        if (gamepad.buttons[0].pressed) {
-          if (!this.buttonPressed) {
-            this.clickObject();
-            this.buttonPressed = true; // Debounce press
-          }
-        } else {
-          this.buttonPressed = false; // Reset when button released
-        }
-      },
-      clickObject: function() {
-        // Use the raycaster to find what we are looking at
-        if (!this.cursorEl || !this.cursorEl.components.raycaster) return;
-        
-        const intersections = this.cursorEl.components.raycaster.intersectedEls;
-        if (intersections.length > 0) {
-          // Trigger the existing 'click' logic on the answer button
-          intersections[0].emit('click');
-          
-          // Visual feedback on the cursor
-          const oldColor = this.cursorEl.getAttribute('material').color;
-          this.cursorEl.setAttribute('material', 'color', 'yellow');
-          setTimeout(() => {
-             this.cursorEl.setAttribute('material', 'color', oldColor);
-          }, 150);
-        }
-      }
-    });
-
-    // --- EXISTING COMPONENTS (Unchanged) ---
-
-    AFRAME.registerComponent('sync-name', {
-        schema: { name: { type: 'string', default: 'Loading...' } },
+    <script src="https://cdn.jsdelivr.net/npm/webxr-polyfill@latest/build/webxr-polyfill.min.js"></script>
+    <script> const polyfill = new WebXRPolyfill(); </script>
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.4.0/dist/aframe-extras.min.js"></script>
+  </head>
+  
+  <body>
+    <script>
+      // --- SYSTEM: CHEMISTRY ENGINE ---
+      AFRAME.registerSystem('chemistry-engine', {
         init: function() {
-            this.trySetName();
-            setTimeout(() => this.trySetName(), 500);
-            setTimeout(() => this.trySetName(), 1500);
+            this.throttle = 0;
+            this.statusText = document.querySelector('#status-text');
+            this.infoPanel = document.querySelector('#info-panel');
+            this.infoTitle = document.querySelector('#info-title');
+            this.infoDesc = document.querySelector('#info-desc');
         },
-        trySetName: function() {
-            if (NAF.utils.isMine(this.el)) {
-                const params = new URLSearchParams(window.location.search);
-                const myName = params.get('username') || 'Guest'; 
-                this.el.setAttribute('sync-name', 'name', myName);
-                const visuals = this.el.querySelector('.visuals');
-                if (visuals) visuals.setAttribute('visible', false);
+        tick: function(t, dt) {
+            this.throttle += dt;
+            if (this.throttle < 1000) return; 
+            this.throttle = 0;
+
+            const atoms = Array.from(document.querySelectorAll('.atom-instance'));
+            const molecules = Array.from(document.querySelectorAll('.molecule-move'));
+            const usedAtoms = new Set();
+
+            if (molecules.length > 0 && atoms.length > 0) {
+                molecules.forEach(mol => {
+                    atoms.forEach(atom => {
+                        if (usedAtoms.has(atom)) return;
+                        if (atom.object3D.position.distanceTo(mol.object3D.position) < 0.6) {
+                            this.disassembleMolecule(mol);
+                            usedAtoms.add(atom);
+                        }
+                    });
+                });
             }
+
+            atoms.forEach(atom => {
+                if (usedAtoms.has(atom)) return; 
+                if (atom.getAttribute('data-processed') === 'true') return;
+
+                const neighbors = atoms.filter(a => 
+                    a !== atom && 
+                    a.getAttribute('data-processed') !== 'true' &&
+                    a.object3D.position.distanceTo(atom.object3D.position) < 0.8
+                );
+                
+                const group = [atom, ...neighbors];
+                group.forEach(a => a.setAttribute('data-processed', 'true'));
+
+                const counts = { H: 0, O: 0, C: 0 };
+                group.forEach(a => {
+                    const type = a.getAttribute('atom-type');
+                    if (counts[type] !== undefined) counts[type]++;
+                });
+
+                if (counts.C === 3 && counts.H === 8 && group.length === 11) this.buildMolecule('propane', group, counts);
+                else if (counts.C === 2 && counts.H === 6 && counts.O === 1 && group.length === 9) this.buildMolecule('ethanol', group, counts);
+                else if (counts.C === 2 && counts.H === 4 && counts.O === 2 && group.length === 8) this.buildMolecule('acetic_acid', group, counts);
+                else if (counts.C === 2 && counts.H === 6 && group.length === 8) this.buildMolecule('ethane', group, counts);
+                else if (counts.C === 1 && counts.H === 4 && counts.O === 1 && group.length === 6) this.buildMolecule('methanol', group, counts);
+                else if (counts.C === 1 && counts.H === 4 && group.length === 5) this.buildMolecule('methane', group, counts);
+                else if (counts.H === 2 && counts.O === 2 && group.length === 4) this.buildMolecule('h2o2', group, counts);
+                else if (counts.C === 1 && counts.O === 2 && group.length === 3) this.buildMolecule('co2', group, counts);
+                else if (counts.H === 2 && counts.O === 1 && group.length === 3) this.buildMolecule('water', group, counts);
+                
+                setTimeout(() => { group.forEach(a => a.removeAttribute('data-processed')); }, 0);
+            });
         },
-        update: function() {
-            const name = this.data.name;
-            const textEl = this.el.querySelector('.nametag');
-            if (textEl) textEl.setAttribute('value', name);
-            this.updateColor(name);
-        },
-        updateColor: function(name) {
-            let hash = 0;
-            for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-            let color = '#';
-            for (let i = 0; i < 3; i++) color += ('00' + ((hash >> (i * 8)) & 0xFF).toString(16)).substr(-2);
-            const apply = () => {
-                const obj = this.el.getObject3D('mesh');
-                if (obj) obj.traverse(n => { if (n.isMesh) n.material.color.set(color); });
+
+        disassembleMolecule: function(molecule) {
+            const pos = molecule.object3D.position;
+            const countsStr = molecule.getAttribute('data-counts');
+            if (!countsStr) return;
+            const counts = JSON.parse(countsStr);
+            const scene = document.querySelector('a-scene');
+
+            const spawn = (type) => {
+                const el = document.createElement('a-sphere');
+                el.setAttribute('class', 'atom-instance atom');
+                let color = '#ECF0F1'; let radius = '0.15'; let symbol = 'H';
+                if (type === 'O') { color = '#E74C3C'; radius = '0.2'; symbol = 'O'; }
+                if (type === 'C') { color = '#2C3E50'; radius = '0.22'; symbol = 'C'; }
+
+                el.setAttribute('radius', radius);
+                el.setAttribute('color', color);
+                el.setAttribute('atom-type', type);
+                el.setAttribute('shadow', 'cast: true; receive: true');
+                el.setAttribute('material', 'roughness: 0.3; metalness: 0.1');
+
+                const text = document.createElement('a-text');
+                text.setAttribute('value', symbol);
+                text.setAttribute('color', color === '#ECF0F1' ? 'black' : 'white');
+                text.setAttribute('align', 'center');
+                text.setAttribute('position', `0 0 ${parseFloat(radius) + 0.01}`);
+                text.setAttribute('scale', '2 2 2');
+                el.appendChild(text);
+
+                const jX = (Math.random() - 0.5) * 0.5;
+                const jY = (Math.random() - 0.5) * 0.5;
+                const jZ = (Math.random() - 0.5) * 0.5;
+                el.setAttribute('position', `${pos.x + jX} ${pos.y + jY} ${pos.z + jZ}`);
+                scene.appendChild(el);
             };
-            if (this.el.getObject3D('mesh')) apply();
-            else this.el.addEventListener('model-loaded', apply);
-        }
-    });
 
-    AFRAME.registerComponent('rig-follow', {
-      tick: function () {
-        const cam = this.el.sceneEl.camera.el;
-        if (!cam) return;
-        const camPos = cam.getAttribute('position');
-        const camRot = cam.getAttribute('rotation');
-        this.el.setAttribute('position', camPos);
-        this.el.setAttribute('rotation', {x: 0, y: camRot.y, z: 0});
-      }
-    });
-
-    AFRAME.registerComponent('wall-collider', {
-      schema: {
-        width: {default: 15},
-        length: {default: 15},
-        padding: {default: 0.4}
-      },
-      tick: function () {
-        const pos = this.el.object3D.position;
-        const halfWidth = (this.data.width / 2) - this.data.padding;
-        const halfLength = (this.data.length / 2) - this.data.padding;
-        if (pos.x < -halfWidth) pos.x = -halfWidth;
-        if (pos.x > halfWidth) pos.x = halfWidth;
-        if (pos.z < -halfLength) pos.z = -halfLength;
-        if (pos.z > halfLength) pos.z = halfLength;
-      }
-    });
-
-    AFRAME.registerComponent('player-animator', {
-        init: function() {
-            this.model = this.el.querySelector('.model');
-            this.prevPos = new THREE.Vector3();
-            this.currentAnim = "Idle";
-            this.tick = AFRAME.utils.throttleTick(this.tick, 100, this);
+            for(let i=0; i<counts.C; i++) spawn('C');
+            for(let i=0; i<counts.H; i++) spawn('H');
+            for(let i=0; i<counts.O; i++) spawn('O');
+            molecule.parentNode.removeChild(molecule);
         },
-        tick: function() {
-            if (!this.model) return;
-            const currentPos = this.el.object3D.getWorldPosition(new THREE.Vector3());
-            const distSq = currentPos.distanceToSquared(this.prevPos);
-            
-            if (distSq > 0.0005) { 
-                if (this.currentAnim !== "Walking") {
-                    this.model.setAttribute('animation-mixer', 'clip: Walking; crossFadeDuration: 0.2');
-                    this.currentAnim = "Walking";
-                }
-            } else {
-                if (this.currentAnim !== "Idle") {
-                    this.model.setAttribute('animation-mixer', 'clip: Idle; crossFadeDuration: 0.2');
-                    this.currentAnim = "Idle";
-                }
-            }
-            this.prevPos.copy(currentPos);
-        }
-    });
 
-    AFRAME.registerComponent('click-answer', {
-        schema: { index: {type: 'int', default: 0} },
-        init: function () {
+        buildMolecule: function(type, group, counts) {
+            const center = new THREE.Vector3();
+            group.forEach(a => center.add(a.object3D.position));
+            center.divideScalar(group.length);
+            group.forEach(a => { if (a.parentNode) a.parentNode.removeChild(a); });
+
+            const molecule = document.createElement('a-entity');
+            molecule.setAttribute('position', center);
+            molecule.setAttribute('class', 'molecule-move');
+            molecule.setAttribute('data-counts', JSON.stringify(counts));
+
+            let name = "";
+            let description = "";
+
+            if (type === 'ethanol') { 
+                name = "Ethanol (C2H6O)"; 
+                description = "A volatile, flammable, colorless liquid. It is the psychoactive substance in alcoholic drinks and is also used as a clean-burning fuel source and antiseptic.";
+                this.addAtom(molecule, '#2C3E50', 0.25, '-0.4 0 0', 'C');
+                this.addAtom(molecule, '#2C3E50', 0.25, '0.2 0 0', 'C');
+                this.addAtom(molecule, '#E74C3C', 0.25, '0.7 -0.3 0', 'O');
+                this.addBond(molecule, '-0.4 0 0', '0.2 0 0');
+                this.addBond(molecule, '0.2 0 0', '0.7 -0.3 0');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.8 0.3 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.8 -0.3 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.4 0 -0.5', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0.2 0.4 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0.2 0 -0.5', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '1.0 -0.1 0', 'H');
+            } else if (type === 'methanol') {
+                name = "Methanol (CH3OH)"; 
+                description = "The simplest alcohol. A toxic, colorless, volatile liquid used as a solvent, pesticide, and alternative fuel source. It is distinct from ethanol.";
+                this.addAtom(molecule, '#2C3E50', 0.25, '0 0 0', 'C');
+                this.addAtom(molecule, '#E74C3C', 0.25, '0 -0.2 -0.5', 'O');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0 -0.6 -0.6', 'H'); 
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0 0.4 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.35 -0.2 0.35', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0.35 -0.2 0.35', 'H');
+                this.addBond(molecule, '0 0 0', '0 -0.2 -0.5');
+                this.addBond(molecule, '0 -0.2 -0.5', '0 -0.6 -0.6');
+            } else if (type === 'ethane') {
+                name = "Ethane (C2H6)"; 
+                description = "A colorless, odorless gas. It is a byproduct of petroleum refining and a component of natural gas, largely used in petrochemical production.";
+                this.addAtom(molecule, '#2C3E50', 0.25, '-0.3 0 0', 'C');
+                this.addAtom(molecule, '#2C3E50', 0.25, '0.3 0 0', 'C');
+                this.addBond(molecule, '-0.3 0 0', '0.3 0 0');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.6 0.3 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.6 -0.2 0.3', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.6 -0.2 -0.3', 'H');
+                this.addBond(molecule, '-0.3 0 0', '-0.6 0.3 0');
+                this.addBond(molecule, '-0.3 0 0', '-0.6 -0.2 0.3');
+                this.addBond(molecule, '-0.3 0 0', '-0.6 -0.2 -0.3');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0.6 0.3 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0.6 -0.2 0.3', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0.6 -0.2 -0.3', 'H');
+                this.addBond(molecule, '0.3 0 0', '0.6 0.3 0');
+                this.addBond(molecule, '0.3 0 0', '0.6 -0.2 0.3');
+                this.addBond(molecule, '0.3 0 0', '0.6 -0.2 -0.3');
+            } else if (type === 'propane') {
+                name = "Propane (C3H8)"; 
+                description = "A three-carbon alkane gas. Commonly compressed and stored as a liquid fuel for engines, oxy-gas torches, barbecues, and central heating.";
+                this.addAtom(molecule, '#2C3E50', 0.25, '-0.5 0 0', 'C');
+                this.addAtom(molecule, '#2C3E50', 0.25, '0 0 0', 'C');
+                this.addAtom(molecule, '#2C3E50', 0.25, '0.5 0 0', 'C');
+                this.addBond(molecule, '-0.5 0 0', '0 0 0');
+                this.addBond(molecule, '0 0 0', '0.5 0 0');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.8 0 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0.8 0 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.5 0.4 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.5 -0.4 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0 0.4 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0 -0.4 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0.5 0.4 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0.5 -0.4 0', 'H');
+            } else if (type === 'acetic_acid') {
+                name = "Acetic Acid"; 
+                description = "A colourless liquid that gives vinegar its sour taste and pungent smell. It is an important chemical reagent and industrial feedstock.";
+                this.addAtom(molecule, '#2C3E50', 0.25, '-0.3 0 0', 'C'); 
+                this.addAtom(molecule, '#2C3E50', 0.25, '0.3 0 0', 'C'); 
+                this.addBond(molecule, '-0.3 0 0', '0.3 0 0');
+                this.addAtom(molecule, '#E74C3C', 0.25, '0.5 0.4 0', 'O');
+                this.addBond(molecule, '0.3 0 0', '0.5 0.4 0');
+                this.addAtom(molecule, '#E74C3C', 0.25, '0.6 -0.3 0', 'O'); 
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0.8 -0.5 0', 'H');
+                this.addBond(molecule, '0.3 0 0', '0.6 -0.3 0');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.6 0.3 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.6 -0.3 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.3 0 0.4', 'H');
+            } else if (type === 'methane') {
+                name = "Methane (CH4)"; 
+                description = "The simplest alkane and main constituent of natural gas. It is a powerful greenhouse gas and a common fuel source for electrical generation.";
+                this.addAtom(molecule, '#2C3E50', 0.25, '0 0 0', 'C');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0 0.4 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.35 -0.2 0.35', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0.35 -0.2 0.35', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0 -0.2 -0.4', 'H');
+                this.addBond(molecule, '0 0 0', '0 0.4 0');
+                this.addBond(molecule, '0 0 0', '-0.35 -0.2 0.35');
+                this.addBond(molecule, '0 0 0', '0.35 -0.2 0.35');
+                this.addBond(molecule, '0 0 0', '0 -0.2 -0.4');
+            } else if (type === 'h2o2') {
+                name = "Hydrogen Peroxide"; 
+                description = "A pale blue liquid, slightly more viscous than water. It is unstable and used as a powerful oxidizer, bleaching agent, and antiseptic.";
+                this.addAtom(molecule, '#E74C3C', 0.25, '-0.2 0 0', 'O');
+                this.addAtom(molecule, '#E74C3C', 0.25, '0.2 0 0', 'O');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '-0.4 0.3 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.15, '0.4 -0.3 0.2', 'H');
+                this.addBond(molecule, '-0.2 0 0', '0.2 0 0');
+                this.addBond(molecule, '-0.2 0 0', '-0.4 0.3 0');
+                this.addBond(molecule, '0.2 0 0', '0.4 -0.3 0.2');
+            } else if (type === 'co2') {
+                name = "Carbon Dioxide"; 
+                description = "A colorless gas at room temperature. produced by respiration and combustion. It is the primary greenhouse gas emitted by human activities.";
+                this.addAtom(molecule, '#2C3E50', 0.25, '0 0 0', 'C');
+                this.addAtom(molecule, '#E74C3C', 0.25, '-0.6 0 0', 'O');
+                this.addAtom(molecule, '#E74C3C', 0.25, '0.6 0 0', 'O');
+                this.addBond(molecule, '0 0 0', '-0.6 0 0');
+                this.addBond(molecule, '0 0 0', '0.6 0 0');
+            } else if (type === 'water') {
+                name = "Water (H2O)"; 
+                description = "A transparent, tasteless, odorless, and nearly colorless chemical substance. It is the main constituent of Earth's hydrosphere and essential for all life.";
+                this.addAtom(molecule, '#E74C3C', 0.3, '0 0 0', 'O');
+                this.addAtom(molecule, '#ECF0F1', 0.2, '-0.4 -0.3 0', 'H');
+                this.addAtom(molecule, '#ECF0F1', 0.2, '0.4 -0.3 0', 'H');
+                this.addBond(molecule, '0 0 0', '-0.4 -0.3 0');
+                this.addBond(molecule, '0 0 0', '0.4 -0.3 0');
+            }
+
+            const label = document.createElement('a-text');
+            label.setAttribute('value', name.split('(')[0]);
+            label.setAttribute('align', 'center');
+            label.setAttribute('position', '0 0.7 0');
+            label.setAttribute('scale', '1.5 1.5 1.5');
+            label.setAttribute('color', '#BDC3C7');
+            molecule.appendChild(label);
+
+            document.querySelector('a-scene').appendChild(molecule);
+
+            if (this.infoPanel) {
+                this.infoPanel.setAttribute('visible', 'true');
+                this.infoTitle.setAttribute('value', name);
+                this.infoDesc.setAttribute('value', description);
+                this.infoPanel.setAttribute('animation', {
+                    property: 'scale',
+                    from: '0.1 0.1 0.1',
+                    to: '1 1 1',
+                    dur: 500,
+                    easing: 'easeOutExpo'
+                });
+            }
+        },
+
+        addAtom: function(parent, color, radius, posStr, symbol) {
+            const el = document.createElement('a-sphere');
+            el.setAttribute('color', color);
+            el.setAttribute('radius', radius);
+            el.setAttribute('position', posStr);
+            el.setAttribute('class', 'molecule-part');
+            el.setAttribute('material', 'roughness: 0.3; metalness: 0.1');
+            const text = document.createElement('a-text');
+            text.setAttribute('value', symbol);
+            text.setAttribute('color', color === '#ECF0F1' ? 'black' : 'white');
+            text.setAttribute('align', 'center');
+            text.setAttribute('position', `0 0 ${radius + 0.02}`);
+            text.setAttribute('scale', '1.5 1.5 1.5');
+            el.appendChild(text);
+            parent.appendChild(el);
+        },
+
+        addBond: function(parent, pos1Str, pos2Str) {
+            const p1 = pos1Str.split(' ').map(Number);
+            const p2 = pos2Str.split(' ').map(Number);
+            const v1 = new THREE.Vector3(p1[0], p1[1], p1[2]);
+            const v2 = new THREE.Vector3(p2[0], p2[1], p2[2]);
+            const distance = v1.distanceTo(v2);
+            const mid = v1.clone().add(v2).multiplyScalar(0.5);
+            const el = document.createElement('a-cylinder');
+            el.setAttribute('color', '#7F8C8D');
+            el.setAttribute('radius', '0.03');
+            el.setAttribute('height', distance);
+            el.setAttribute('position', mid);
+            el.setAttribute('material', 'roughness: 0.2; metalness: 0.4');
+            el.object3D.lookAt(v2);
+            el.object3D.rotateX(Math.PI / 2);
+            parent.appendChild(el);
+        }
+      });
+
+      // --- COMPONENT: TELEPORT HOME ---
+      AFRAME.registerComponent('teleport-home', {
+        init: function() {
             this.el.addEventListener('click', () => {
-                if (window.gameSocket && window.gameSocket.connected) {
-                    window.gameSocket.emit('submit_answer', this.data.index);
-                    this.el.setAttribute('scale', '0.9 0.9 0.9');
-                    setTimeout(() => this.el.setAttribute('scale', '1 1 1'), 150);
-                }
+                const rig = document.querySelector('#rig');
+                const cam = document.querySelector('[camera]');
+                // Reset Rig Position to Spawn
+                rig.setAttribute('position', '0 0 3');
+                // Reset Rotation (Look forward)
+                rig.setAttribute('rotation', '0 0 0'); 
+                cam.setAttribute('rotation', '0 0 0');
+                
+                // Visual Click Feedback
+                const originalColor = this.el.getAttribute('color');
+                this.el.setAttribute('color', '#BDC3C7');
+                setTimeout(() => {
+                    this.el.setAttribute('color', originalColor);
+                }, 200);
             });
         }
-    });
+      });
 
-    AFRAME.registerComponent('random-spawn', {
-      init: function () {
-        this.el.setAttribute('position', `${(Math.random() * 12) - 6} 1.7 ${(Math.random() * 12) - 6}`);
-      }
-    });
+      // --- COMPONENT: SPAWNER ---
+      AFRAME.registerComponent('atom-spawner', {
+        schema: { type: {default: 'H'} },
+        init: function() {
+            this.el.addEventListener('click', () => {
+                const scene = document.querySelector('a-scene');
+                const newAtom = document.createElement('a-sphere');
+                newAtom.setAttribute('class', 'atom-instance atom');
+                
+                let color = '#ECF0F1'; let radius = '0.15'; let symbol = 'H';
+                if (this.data.type === 'O') { color = '#E74C3C'; radius = '0.2'; symbol = 'O'; }
+                if (this.data.type === 'C') { color = '#2C3E50'; radius = '0.22'; symbol = 'C'; }
 
-    window.addEventListener('load', function() {
-        NAF.schemas.add({
-            template: '#avatar-template',
-            components: [
-                'position', 
-                'rotation',
-                { component: 'sync-name', property: 'name' } 
-            ]
-        });
+                newAtom.setAttribute('radius', radius);
+                newAtom.setAttribute('color', color);
+                newAtom.setAttribute('atom-type', this.data.type);
+                newAtom.setAttribute('shadow', 'cast: true; receive: true');
+                newAtom.setAttribute('material', 'roughness: 0.3; metalness: 0.1');
+                
+                const text = document.createElement('a-text');
+                text.setAttribute('value', symbol);
+                text.setAttribute('color', color === '#ECF0F1' ? 'black' : 'white');
+                text.setAttribute('align', 'center');
+                text.setAttribute('position', `0 0 ${parseFloat(radius) + 0.01}`);
+                text.setAttribute('scale', '2 2 2');
+                newAtom.appendChild(text);
 
-        window.gameSocket = window.ioGame(`${window.location.protocol}//${window.location.hostname}:8080`);
-        
-        window.gameSocket.on('connect', () => {
-            const params = new URLSearchParams(window.location.search);
-            window.gameSocket.emit('join_game', { name: params.get('username') || 'Guest' });
-        });
+                // FIXED SPAWN POSITION: Directly above Pedestal
+                const randX = (Math.random() - 0.5) * 0.4;
+                const randZ = (Math.random() - 0.5) * 0.4;
+                newAtom.setAttribute('position', `${0 + randX} 1.8 ${-2.5 + randZ}`);
+                
+                scene.appendChild(newAtom);
+            });
+        }
+      });
 
-        window.gameSocket.on('show_question', (data) => {
-            const text = `${data.q}\n\nA: ${data.options[0]}   B: ${data.options[1]}\nC: ${data.options[2]}   D: ${data.options[3]}`;
-            const screen = document.querySelector('#screen-text');
-            if(screen) screen.setAttribute('text', { value: text, color: 'white' });
+      // --- MOVEMENT & LOOK COMPONENTS ---
+      
+      // Look controls for Right Stick (Axis 2)
+      AFRAME.registerComponent('gamepad-look', {
+        schema: { sensitivity: {default: 2.0} },
+        tick: function (time, timeDelta) {
+            const gamepads = navigator.getGamepads();
+            if (!gamepads || !gamepads[0]) return;
+            const gp = gamepads[0];
+            const lookX = gp.axes[2];
+            const dt = timeDelta / 1000;
+            if (Math.abs(lookX) > 0.1) {
+                const rotation = this.el.getAttribute('rotation');
+                rotation.y -= lookX * this.data.sensitivity * 60 * dt;
+                this.el.setAttribute('rotation', rotation);
+            }
+        }
+      });
+
+      AFRAME.registerComponent('atom-grab', {
+        init: function () {
+          this.heldObject = null;
+          this.reticle = this.el;
+          this.onTrigger = this.onTrigger.bind(this);
+          this.onHover = this.onHover.bind(this);
+          this.onHoverClear = this.onHoverClear.bind(this);
+          this.el.addEventListener('raycaster-intersection', this.onHover);
+          this.el.addEventListener('raycaster-intersection-cleared', this.onHoverClear);
+          this.el.addEventListener('mousedown', this.onTrigger);
+          this.reticle.setAttribute('material', 'color', '#FFF');
+          this.reticle.setAttribute('opacity', '0.5');
+        },
+        tick: function () {
+            const gamepads = navigator.getGamepads();
+            if (gamepads && gamepads[0]) {
+                const gp = gamepads[0];
+                if (gp.buttons[0].pressed) {
+                    if (!this.buttonPressed) {
+                        this.onTrigger({ type: 'gamepad' });
+                        this.buttonPressed = true;
+                    }
+                } else { this.buttonPressed = false; }
+            }
+        },
+        onHover: function (evt) {
+            const el = evt.detail.els[0]; 
+            if (this.hoveredObject === el) return; 
+            this.hoveredObject = el;
             
-            document.querySelector('#timer-bar').setAttribute('width', 9);
-            document.querySelector('#timer-bar').setAttribute('color', '#00ff00');
-            document.querySelector('#answer-buttons').setAttribute('visible', true);
-        });
+            if (this.heldObject !== el && (el.classList.contains('atom') || el.classList.contains('molecule-move') || el.classList.contains('spawner') || el.classList.contains('reset-button'))) {
+                let targetEl = el.classList.contains('molecule-part') ? el.parentEl : el;
+                if (targetEl.getAttribute('material')) targetEl.setAttribute('material', 'emissive', '#555555'); 
+                this.reticle.setAttribute('scale', '1.5 1.5 1.5');
+                this.reticle.setAttribute('material', 'color', '#2ECC71'); 
+            }
+        },
+        onHoverClear: function (evt) {
+            if (this.hoveredObject && this.hoveredObject !== this.heldObject) {
+                if (this.hoveredObject.getAttribute('material')) this.hoveredObject.setAttribute('material', 'emissive', '#000000');
+            }
+            this.hoveredObject = null;
+            this.reticle.setAttribute('scale', '1 1 1');
+            this.reticle.setAttribute('material', 'color', '#FFF');
+        },
+        onTrigger: function (evt) {
+          if (this.heldObject) {
+            this.dropObject();
+          } else if (this.hoveredObject) {
+            let targetEl = this.hoveredObject;
+            if (targetEl.classList.contains('molecule-part')) targetEl = targetEl.parentEl;
+            
+            if (targetEl.classList.contains('atom') || targetEl.classList.contains('molecule-move')) {
+                this.grabObject(targetEl);
+            } else if (targetEl.classList.contains('spawner') || targetEl.classList.contains('reset-button')) {
+                targetEl.emit('click'); 
+            }
+          }
+        },
+        grabObject: function (obj) {
+            this.heldObject = obj;
+            this.el.object3D.attach(this.heldObject.object3D);
+            this.reticle.setAttribute('material', 'color', '#2ECC71');
+        },
+        dropObject: function () {
+            if (!this.heldObject) return;
+            
+            // --- TRASH BIN LOGIC ---
+            const bin = document.querySelector('#trash-bin');
+            if (bin) {
+                const atomPos = new THREE.Vector3();
+                this.heldObject.object3D.getWorldPosition(atomPos);
+                
+                const binPos = new THREE.Vector3();
+                bin.object3D.getWorldPosition(binPos);
+                
+                if (atomPos.distanceTo(binPos) < 0.6) {
+                    this.heldObject.parentNode.removeChild(this.heldObject);
+                    this.heldObject = null;
+                    this.reticle.setAttribute('material', 'color', '#FFF');
+                    return; 
+                }
+            }
+            
+            this.el.sceneEl.object3D.attach(this.heldObject.object3D);
+            if(this.heldObject.classList.contains('atom') || this.heldObject.classList.contains('molecule-move')) {
+                const children = this.heldObject.querySelectorAll ? this.heldObject.querySelectorAll('[material]') : [];
+                if(children.length > 0) children.forEach(c => c.setAttribute('material', 'emissive', '#000000'));
+                else this.heldObject.setAttribute('material', 'emissive', '#000000');
+            }
+            this.heldObject = null;
+            this.reticle.setAttribute('material', 'color', '#FFF');
+        }
+      });
+      
+      AFRAME.registerComponent('room-bounds', {
+        tick: function () {
+            const pos = this.el.object3D.position;
+            const limitX = 5.5; const limitZ = 5.5;
+            if (pos.x < -limitX) pos.x = -limitX;
+            if (pos.x > limitX) pos.x = limitX;
+            if (pos.z < -limitZ) pos.z = -limitZ;
+            if (pos.z > limitZ) pos.z = limitZ;
+        }
+      });
+    </script>
 
-        window.gameSocket.on('timer_update', (timeLeft) => {
-            const bar = document.querySelector('#timer-bar');
-            if(bar) bar.setAttribute('width', (timeLeft / 15) * 9);
-        });
+    <a-scene background="color: #000000" loading-screen="dotsColor: white; backgroundColor: black" shadow="type: pcfsoft">
+      
+      <a-assets>
+          <a-asset-item id="board-model" src="whiteboard.glb"></a-asset-item>
+      </a-assets>
 
-        window.gameSocket.on('show_results', (data) => {
-            document.querySelector('#screen-text').setAttribute('text', { value: `Time's Up!\nCorrect: Option ${data.correct_option + 1}` });
-            document.querySelector('#answer-buttons').setAttribute('visible', false);
-        });
-    });
+      <a-light type="ambient" color="#ffffff" intensity="0.3"></a-light>
+      <a-light type="spot" position="0 6 -2.5" target="#pedestal" color="#ffffff" intensity="0.9" angle="45" penumbra="0.3" castShadow="true"></a-light>
+      <a-light type="spot" position="6.9 6 0" target="#board-structure" color="#ffffff" intensity="0.6" angle="45" penumbra="0.5" castShadow="true"></a-light>
+      <a-light type="spot" position="0 7 -6" target="#info-panel" color="#ffffff" intensity="0.6" angle="45" penumbra="0.5"></a-light>
+      <a-light type="point" position="-6 4 0" color="#aaccff" intensity="0.5" distance="5"></a-light>
 
-    const serverUrl = `${window.location.protocol}//${window.location.hostname}:8081`;
-    document.querySelector('a-scene').setAttribute('networked-scene', {
-        room: 'kahoot-vr-room',
-        adapter: 'wseasyrtc',
-        serverURL: serverUrl
-    });
-  </script>
-</body>
+      <a-plane rotation="-90 0 0" width="14" height="14" color="#111111" material="metalness: 0.8; roughness: 0.1" shadow="receive: true"></a-plane>
+      <a-plane position="0 5 -7" width="14" height="10" color="#F5F5F5"></a-plane>
+      
+      <a-plane position="-7 5 -5.5" rotation="0 90 0" width="3" height="10" color="#F5F5F5"></a-plane>
+      <a-plane position="-7 5 2.5" rotation="0 90 0" width="9" height="10" color="#F5F5F5"></a-plane>
+      <a-plane position="-7 7.1 -3" rotation="0 90 0" width="2" height="5.8" color="#F5F5F5"></a-plane>
+
+      <a-entity position="-6.9 2 -3" rotation="0 90 0">
+          <a-box color="#333" width="2.2" height="4.2" depth="0.1" position="0 0 -0.05"></a-box> 
+          <a-box color="#777" width="2" height="4" depth="0.1" position="0 0 0" material="metalness: 0.6; roughness: 0.4"></a-box> 
+          <a-cylinder color="#CCC" radius="0.05" height="0.3" position="0.8 0 0.1" rotation="90 0 0"></a-cylinder> 
+      </a-entity>
+
+      <a-image src="periodic_table.jpg" position="-6.9 3 1.5" rotation="0 90 0" width="4" height="2.5"></a-image>
+
+      <a-box position="-6.4 0.6 1.5" width="1.2" height="1.2" depth="3" color="#3498DB" opacity="0.4" material="transparent: true">
+        <a-text value="LAB TABLE SPACE" rotation="0 90 0" align="center" color="white" position="0 0.5 0"></a-text>
+      </a-box>
+      
+      <a-gltf-model src="glassware.glb" position="-6.4 1.2 1.5" scale="1 1 1"></a-gltf-model>
+      <a-gltf-model src="table.glb" position="6.0 0 -3.6" rotation="0 -90 0" scale="1 1 1"></a-gltf-model>
+
+      <a-entity position="-1.5 1.0 -2.0" rotation="0 25 0">
+          <a-box color="#34495e" width="0.4" height="0.2" depth="0.1"></a-box>
+          <a-text value="RESET VIEW" align="center" position="0 0.15 0" color="#BBB" scale="0.8 0.8 0.8"></a-text>
+          <a-box class="reset-button" teleport-home color="#E74C3C" width="0.2" height="0.1" depth="0.05" position="0 0 0.05"></a-box>
+      </a-entity>
+
+      <a-entity position="1.5 0.3 -2.5">
+          <a-cylinder id="trash-bin" radius="0.3" height="0.6" color="#111" open-ended="true" side="double" material="roughness: 0.5"></a-cylinder>
+          <a-circle rotation="-90 0 0" position="0 -0.3 0" radius="0.3" color="#111" side="double"></a-circle>
+          <a-text value="TRASH" align="center" color="white" position="0 0.4 0" rotation="0 -90 0" scale="2 2 2"></a-text>
+      </a-entity>
+
+      <a-plane position="7 5 0" rotation="0 -90 0" width="14" height="10" color="#F5F5F5"></a-plane>
+      <a-plane position="0 5 7" rotation="0 180 0" width="14" height="10" color="#F5F5F5"></a-plane>
+      <a-plane position="0 10 0" rotation="90 0 0" width="14" height="14" color="#EEE"></a-plane>
+
+      <a-cylinder id="pedestal" color="#2c3e50" radius="0.9" height="1.0" position="0 0.5 -2.5" shadow="cast: true; receive: true" material="metalness: 0.3; roughness: 0.6"></a-cylinder>
+      <a-cylinder color="#34495e" radius="0.95" height="0.05" position="0 1.0 -2.5" material="metalness: 0.5; roughness: 0.2"></a-cylinder>
+
+      <a-entity id="board-structure" position="6.9 3 0" rotation="0 -90 0">
+          <a-box color="#333" width="4" height="4.5" depth="0.1" visible="false"></a-box>
+          <a-gltf-model src="#board-model" scale="1.4 2 2" position="0.5 -3 0"></a-gltf-model>
+          <a-text value="KNOWN COMPOUNDS" align="center" color="#000000" position="0.5 2.1 0.1" scale="2 2 2" font="kelsonsans"></a-text>
+          <a-plane color="#000000" width="5" height="0.04" position="0.5 1.8 0.1"></a-plane>
+          
+          <a-text value="H2O (Water)" align="left" color="#000000" position="-1.8 1.6 0.1" scale="1.2 1.2 1.2" font="kelsonsans"></a-text>
+          <a-text value="2 H + 1 O" align="left" color="#333333" position="-1.8 1.35 0.1" font="kelsonsans"></a-text>
+          
+          <a-text value="CO2 (Dioxide)" align="left" color="#000000" position="-1.8 1.0 0.1" scale="1.2 1.2 1.2" font="kelsonsans"></a-text>
+          <a-text value="1 C + 2 O" align="left" color="#333333" position="-1.8 0.75 0.1" font="kelsonsans"></a-text>
+          
+          <a-text value="CH4 (Methane)" align="left" color="#000000" position="-1.8 0.40 0.1" scale="1.2 1.2 1.2" font="kelsonsans"></a-text>
+          <a-text value="1 C + 4 H" align="left" color="#333333" position="-1.8 0.15 0.1" font="kelsonsans"></a-text>
+          
+          <a-text value="H2O2 (Peroxide)" align="left" color="#000000" position="-1.8 -0.20 0.1" scale="1.2 1.2 1.2" font="kelsonsans"></a-text>
+          <a-text value="2 H + 2 O" align="left" color="#333333" position="-1.8 -0.45 0.1" font="kelsonsans"></a-text>
+          
+          <a-text value="CH3OH (Methanol)" align="left" color="#000000" position="0.5 1.6 0.1" scale="1.2 1.2 1.2" font="kelsonsans"></a-text>
+          <a-text value="1 C + 4 H + 1 O" align="left" color="#333333" position="0.5 1.35 0.1" font="kelsonsans"></a-text>
+          
+          <a-text value="C2H6 (Ethane)" align="left" color="#000000" position="0.5 1.0 0.1" scale="1.2 1.2 1.2" font="kelsonsans"></a-text>
+          <a-text value="2 C + 6 H" align="left" color="#333333" position="0.5 0.75 0.1" font="kelsonsans"></a-text>
+          
+          <a-text value="C3H8 (Propane)" align="left" color="#000000" position="0.5 0.40 0.1" scale="1.2 1.2 1.2" font="kelsonsans"></a-text>
+          <a-text value="3 C + 8 H" align="left" color="#333333" position="0.5 0.15 0.1" font="kelsonsans"></a-text>
+          
+          <a-text value="C2H6O (Ethanol)" align="left" color="#000000" position="0.5 -0.20 0.1" scale="1.2 1.2 1.2" font="kelsonsans"></a-text>
+          <a-text value="2 C + 6 H + 1 O" align="left" color="#333333" position="0.5 -0.45 0.1" font="kelsonsans"></a-text>
+      </a-entity>
+
+      <a-box color="#EEEEEE" width="14" height="0.9" depth="1.0" position="0 0.45 -5.5" shadow="cast: true; receive: true"></a-box>
+      <a-box color="#111111" width="14.1" height="0.05" depth="1.1" position="0 0.9 -5.5" material="metalness: 0.7; roughness: 0.2"></a-box>
+
+      <a-entity position="0 1.05 -2.5">
+          <a-box class="spawner clickable" atom-spawner="type: H" color="#ECF0F1" width="0.3" height="0.05" depth="0.3" position="-0.5 0 0" shadow="cast: true">
+              <a-text value="H" align="center" anchor="center" rotation="-90 0 0" position="0 0.03 0" color="black" scale="1.5 1.5 1.5"></a-text>
+          </a-box>
+          <a-box class="spawner clickable" atom-spawner="type: O" color="#E74C3C" width="0.3" height="0.05" depth="0.3" position="0 0 0" shadow="cast: true">
+              <a-text value="O" align="center" anchor="center" rotation="-90 0 0" position="0 0.03 0" color="white" scale="1.5 1.5 1.5"></a-text>
+          </a-box>
+          <a-box class="spawner clickable" atom-spawner="type: C" color="#2C3E50" width="0.3" height="0.05" depth="0.3" position="0.5 0 0" shadow="cast: true">
+              <a-text value="C" align="center" anchor="center" rotation="-90 0 0" position="0 0.03 0" color="white" scale="1.5 1.5 1.5"></a-text>
+          </a-box>
+      </a-entity>
+
+      <a-entity id="info-panel" position="0 5 -6.9" rotation="0 0 0" visible="false">
+          <a-plane color="#1a1a1a" width="6.0" height="3.0" opacity="0.95" material="shader: flat; depthTest: false"></a-plane>
+          <a-text value="MOLECULE DISCOVERED" color="#FFFFFF" align="center" position="0 1.0 0.02" scale="1.5 1.5 1.5" font="roboto"></a-text>
+          <a-plane color="#FFFFFF" width="5.0" height="0.02" position="0 0.8 0.02"></a-plane>
+          <a-text id="info-title" value="" color="#FFF" align="center" position="0 0.4 0.02" width="6" scale="1.5 1.5 1.5" font="roboto"></a-text>
+          <a-text id="info-desc" value="" color="#CCC" align="center" position="0 -0.2 0.02" width="5.0" wrap-count="50" font="roboto"></a-text>
+      </a-entity>
+
+      <a-entity position="0 2.2 -3.8">
+          <a-text id="status-text" value="System Ready. Use Pedestal to Dispense." align="center" width="6" color="#AAA" font="roboto"></a-text>
+      </a-entity>
+
+      <a-entity id="rig" movement-controls="speed: 0.2; fly: false" gamepad-look="sensitivity: 2.0" position="0 0 3" room-bounds>
+        <a-entity camera position="0 1.6 0" look-controls="pointerLockEnabled: false">
+          <a-entity cursor="fuse: false" raycaster="objects: .atom, .molecule-move, .spawner, .molecule-part, .reset-button; far: 10" position="0 0 -1" geometry="primitive: ring; radiusInner: 0.015; radiusOuter: 0.025" material="color: #FFF; shader: flat; opacity: 0.8" atom-grab></a-entity>
+        </a-entity>
+      </a-entity>
+
+    </a-scene>
+  </body>
 </html>
