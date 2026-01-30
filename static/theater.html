@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Xbox Controller Support</title>
+  <title>VR Kahoot - Controller Fix</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -15,7 +15,6 @@
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
   
   <style>
-    /* HIDE AR BUTTON */
     .a-enter-ar-button { display: none !important; }
   </style>
 </head>
@@ -45,7 +44,6 @@
     <a-sky color="#FFFFFF"></a-sky>
     <a-entity light="type: ambient; color: #BBB; intensity: 0.7"></a-entity>
     <a-entity light="type: point; color: #FFF; intensity: 0.4" position="0 4 0"></a-entity>
-    
     <a-plane position="0 0 0" rotation="-90 0 0" width="15" height="15" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
 
     <a-entity position="0 4 -7.4">
@@ -71,11 +69,20 @@
         
         <a-entity id="my-cursor"
                   cursor="fuse: false"
-                  raycaster="objects: .clickable" 
+                  raycaster="objects: .clickable; far: 20" 
                   position="0 0 -1"
                   geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
                   material="color: #3BB143; shader: flat">
         </a-entity>
+
+        <a-text id="debug-log" 
+                value="Waiting for Gamepad...\nPress any button" 
+                position="0 0.1 -0.5" 
+                scale="0.2 0.2 0.2" 
+                align="center" 
+                color="red">
+        </a-text>
+
     </a-entity>
 
     <a-entity id="player-avatar"
@@ -86,48 +93,71 @@
   </a-scene>
 
   <script>
-    // --- 0. GAMEPAD CLICKER (NEW) ---
-    // Listens for Xbox 'A' Button (Index 0) and simulates a click on looked-at objects
+    // --- 0. GAMEPAD CLICKER (ROBUST VERSION) ---
     AFRAME.registerComponent('gamepad-clicker', {
       init: function() {
         this.cursor = this.el.querySelector('[raycaster]');
-        this.prevButtonState = false;
+        this.debugText = document.querySelector('#debug-log');
+        this.prevButtons = {}; // Track state of multiple buttons
+        this.isConnected = false;
       },
       tick: function() {
-        // 1. Get Gamepads
         const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-        if (!gamepads) return;
-
-        // 2. Check first active gamepad
-        const gp = gamepads[0] || gamepads[1]; 
-        if (!gp || !gp.buttons) return;
-
-        // 3. Check Button 0 (Xbox 'A' button)
-        const isPressed = gp.buttons[0].pressed;
-
-        // 4. Trigger Click ONLY on the "Down" press (debounce)
-        if (isPressed && !this.prevButtonState) {
-          this.triggerClick();
+        
+        // Find FIRST active gamepad
+        let gp = null;
+        for (let i = 0; i < gamepads.length; i++) {
+            if (gamepads[i] && gamepads[i].buttons.length > 0) {
+                gp = gamepads[i];
+                break;
+            }
         }
 
-        this.prevButtonState = isPressed;
+        if (!gp) {
+            if (this.isConnected) {
+                this.isConnected = false;
+                if(this.debugText) this.debugText.setAttribute('value', "Gamepad Lost!");
+            }
+            return;
+        }
+
+        // Update Debug Text once when connected
+        if (!this.isConnected) {
+            this.isConnected = true;
+            if(this.debugText) this.debugText.setAttribute('value', "GP Connected!\nAim and Press ANY Button");
+            setTimeout(() => {
+                if(this.debugText) this.debugText.setAttribute('visible', false);
+            }, 5000); // Hide debug text after 5 seconds of success
+        }
+
+        // Check the first 4 buttons (A, B, X, Y usually)
+        // We iterate so ANY button works
+        for (let j = 0; j < Math.min(gp.buttons.length, 4); j++) {
+            const btn = gp.buttons[j];
+            const pressed = btn.pressed;
+
+            // Trigger click only on fresh press (debounce)
+            if (pressed && !this.prevButtons[j]) {
+                this.triggerClick();
+            }
+            this.prevButtons[j] = pressed;
+        }
       },
       triggerClick: function() {
         if (!this.cursor) return;
         
-        // Find what the raycaster is currently touching
-        const intersected = this.cursor.components.raycaster.intersectedEls;
+        // Manual Raycast Check
+        // Sometimes 'intersectedEls' is empty if the raycaster hasn't refreshed.
+        // We trust the visual cursor.
+        const els = this.cursor.components.raycaster.intersectedEls;
         
-        if (intersected.length > 0) {
-          // Click the first thing we see
-          const target = intersected[0];
-          target.emit('click');
-          
-          // Visual feedback (flash the cursor)
-          this.cursor.setAttribute('material', 'color', 'white');
-          setTimeout(() => {
-             this.cursor.setAttribute('material', 'color', '#3BB143');
-          }, 100);
+        if (els.length > 0) {
+            const target = els[0];
+            target.emit('click');
+            
+            // Visual feedback
+            this.cursor.setAttribute('material', 'color', 'red');
+            setTimeout(() => this.cursor.setAttribute('material', 'color', '#3BB143'), 150);
         }
       }
     });
