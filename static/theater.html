@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Controller Fix</title>
+  <title>VR Kahoot - Xbox Controller Support</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -15,7 +15,9 @@
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
   
   <style>
-    .a-enter-ar-button { display: none !important; }
+    .a-enter-ar-button {
+        display: none !important;
+    }
   </style>
 </head>
 
@@ -44,7 +46,13 @@
     <a-sky color="#FFFFFF"></a-sky>
     <a-entity light="type: ambient; color: #BBB; intensity: 0.7"></a-entity>
     <a-entity light="type: point; color: #FFF; intensity: 0.4" position="0 4 0"></a-entity>
+    
     <a-plane position="0 0 0" rotation="-90 0 0" width="15" height="15" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
+
+    <a-plane position="0 5 -7.5" width="15" height="15" color="#FFFFFF"></a-plane>
+    <a-plane position="-7.5 5 0" rotation="0 90 0" width="15" height="15" color="#FFFFFF"></a-plane>
+    <a-plane position="7.5 5 0" rotation="0 -90 0" width="15" height="15" color="#FFFFFF"></a-plane>
+    <a-plane position="0 5 7.5" rotation="0 180 0" width="15" height="15" color="#FFFFFF"></a-plane>
 
     <a-entity position="0 4 -7.4">
         <a-box width="9.2" height="5.2" depth="0.1" color="#222"></a-box>
@@ -54,35 +62,25 @@
     </a-entity>
 
     <a-entity id="answer-buttons" position="0 1.5 -3" visible="false">
-        <a-box class="clickable" position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box class="clickable" position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box class="clickable" position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
-        <a-box class="clickable" position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
+        <a-box position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
     </a-entity>
 
     <a-entity id="local-rig" 
-              camera look-controls wasd-controls
+              movement-controls="controls: gamepad, keyboard; speed: 0.3"
+              look-controls
+              gamepad-interaction
               wall-collider="width: 15; length: 15"
-              gamepad-clicker
               random-spawn
               position="0 1.7 0">
-        
-        <a-entity id="my-cursor"
-                  cursor="fuse: false"
-                  raycaster="objects: .clickable; far: 20" 
+        <a-entity cursor="fuse: false; rayOrigin: entity"
+                  raycaster="objects: .clickable"
                   position="0 0 -1"
                   geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
                   material="color: #3BB143; shader: flat">
         </a-entity>
-
-        <a-text id="debug-log" 
-                value="Waiting for Gamepad...\nPress any button" 
-                position="0 0.1 -0.5" 
-                scale="0.2 0.2 0.2" 
-                align="center" 
-                color="red">
-        </a-text>
-
     </a-entity>
 
     <a-entity id="player-avatar"
@@ -93,76 +91,52 @@
   </a-scene>
 
   <script>
-    // --- 0. GAMEPAD CLICKER (ROBUST VERSION) ---
-    AFRAME.registerComponent('gamepad-clicker', {
+    // --- NEW: GAMEPAD INTERACTION COMPONENT ---
+    AFRAME.registerComponent('gamepad-interaction', {
       init: function() {
-        this.cursor = this.el.querySelector('[raycaster]');
-        this.debugText = document.querySelector('#debug-log');
-        this.prevButtons = {}; // Track state of multiple buttons
-        this.isConnected = false;
+        // Find the cursor entity inside this rig
+        this.cursorEl = this.el.querySelector('[cursor]');
+        this.buttonPressed = false;
       },
       tick: function() {
-        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-        
-        // Find FIRST active gamepad
-        let gp = null;
-        for (let i = 0; i < gamepads.length; i++) {
-            if (gamepads[i] && gamepads[i].buttons.length > 0) {
-                gp = gamepads[i];
-                break;
-            }
-        }
+        const gamepads = navigator.getGamepads();
+        if (!gamepads) return;
 
-        if (!gp) {
-            if (this.isConnected) {
-                this.isConnected = false;
-                if(this.debugText) this.debugText.setAttribute('value', "Gamepad Lost!");
-            }
-            return;
-        }
+        // Check the first connected gamepad
+        const gamepad = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
+        if (!gamepad) return;
 
-        // Update Debug Text once when connected
-        if (!this.isConnected) {
-            this.isConnected = true;
-            if(this.debugText) this.debugText.setAttribute('value', "GP Connected!\nAim and Press ANY Button");
-            setTimeout(() => {
-                if(this.debugText) this.debugText.setAttribute('visible', false);
-            }, 5000); // Hide debug text after 5 seconds of success
-        }
-
-        // Check the first 4 buttons (A, B, X, Y usually)
-        // We iterate so ANY button works
-        for (let j = 0; j < Math.min(gp.buttons.length, 4); j++) {
-            const btn = gp.buttons[j];
-            const pressed = btn.pressed;
-
-            // Trigger click only on fresh press (debounce)
-            if (pressed && !this.prevButtons[j]) {
-                this.triggerClick();
-            }
-            this.prevButtons[j] = pressed;
+        // Button 0 is usually 'A' on Xbox or 'Cross' on PS controllers
+        if (gamepad.buttons[0].pressed) {
+          if (!this.buttonPressed) {
+            this.clickObject();
+            this.buttonPressed = true; // Debounce press
+          }
+        } else {
+          this.buttonPressed = false; // Reset when button released
         }
       },
-      triggerClick: function() {
-        if (!this.cursor) return;
+      clickObject: function() {
+        // Use the raycaster to find what we are looking at
+        if (!this.cursorEl || !this.cursorEl.components.raycaster) return;
         
-        // Manual Raycast Check
-        // Sometimes 'intersectedEls' is empty if the raycaster hasn't refreshed.
-        // We trust the visual cursor.
-        const els = this.cursor.components.raycaster.intersectedEls;
-        
-        if (els.length > 0) {
-            const target = els[0];
-            target.emit('click');
-            
-            // Visual feedback
-            this.cursor.setAttribute('material', 'color', 'red');
-            setTimeout(() => this.cursor.setAttribute('material', 'color', '#3BB143'), 150);
+        const intersections = this.cursorEl.components.raycaster.intersectedEls;
+        if (intersections.length > 0) {
+          // Trigger the existing 'click' logic on the answer button
+          intersections[0].emit('click');
+          
+          // Visual feedback on the cursor
+          const oldColor = this.cursorEl.getAttribute('material').color;
+          this.cursorEl.setAttribute('material', 'color', 'yellow');
+          setTimeout(() => {
+             this.cursorEl.setAttribute('material', 'color', oldColor);
+          }, 150);
         }
       }
     });
 
-    // --- 1. SYNC NAME ---
+    // --- EXISTING COMPONENTS (Unchanged) ---
+
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
@@ -199,7 +173,6 @@
         }
     });
 
-    // --- 2. RIG FOLLOWER ---
     AFRAME.registerComponent('rig-follow', {
       tick: function () {
         const cam = this.el.sceneEl.camera.el;
@@ -211,7 +184,6 @@
       }
     });
 
-    // --- 3. WALL COLLIDER ---
     AFRAME.registerComponent('wall-collider', {
       schema: {
         width: {default: 15},
@@ -229,7 +201,6 @@
       }
     });
 
-    // --- 4. ANIMATOR ---
     AFRAME.registerComponent('player-animator', {
         init: function() {
             this.model = this.el.querySelector('.model');
@@ -257,7 +228,6 @@
         }
     });
 
-    // --- 5. GAME LOGIC ---
     AFRAME.registerComponent('click-answer', {
         schema: { index: {type: 'int', default: 0} },
         init: function () {
