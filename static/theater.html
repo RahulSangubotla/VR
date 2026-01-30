@@ -21,14 +21,6 @@
   </style>
 
   <script>
-    // 0. SETUP ICE SERVERS (Fixes AWS Lag)
-    if (window.easyrtc) {
-        easyrtc.setSocketUrl(":8081"); 
-        easyrtc.setIceConfig({
-            iceServers: [ { urls: "stun:stun1.l.google.com:19302" } ]
-        });
-    }
-
     // 1. AUTO CONNECT
     AFRAME.registerComponent('auto-connect', {
       init: function() {
@@ -42,7 +34,9 @@
           room: 'kahoot-vr-room',
           adapter: 'wseasyrtc',
           serverURL: avatarServerUrl,
-          audio: true
+          audio: true,
+          // We put this back here. It works on AWS. Ignore the console warning.
+          iceServers: [ { 'urls': 'stun:stun1.l.google.com:19302' } ] 
         });
       }
     });
@@ -170,8 +164,7 @@
                 this.el.setAttribute('sync-name', 'name', myName);
                 
                 // --- DEBUG: VISIBLE MODEL ---
-                // I commented this out so you can SEE your own model to confirm it loads.
-                // Once it works, you can uncomment this to hide your body again.
+                // Keeping this visible so you can verify the robot loads.
                 // const visuals = this.el.querySelector('.visuals');
                 // if (visuals) visuals.setAttribute('visible', false);
             }
