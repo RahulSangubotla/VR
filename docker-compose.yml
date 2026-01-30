@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  # Main VR Kahoot Application (Python FastAPI + Socket.IO)
+  vr-kahoot-app:
+    build: .
+    container_name: vr-kahoot-main
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    networks:
+      - vr-kahoot-network
+
+  # Avatar Server (Node.js + Socket.IO for VR avatars)
+  avatar-server:
+    build: ./avatar-server
+    container_name: vr-kahoot-avatar
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+    networks:
+      - vr-kahoot-network
+
+networks:
+  vr-kahoot-network:
+    driver: bridge
