@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Xbox Controller Support</title>
+  <title>VR Kahoot - Fixed Controls</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -62,21 +62,22 @@
     </a-entity>
 
     <a-entity id="answer-buttons" position="0 1.5 -3" visible="false">
-        <a-box class="clickable" position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box class="clickable" position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box class="clickable" position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
-        <a-box class="clickable" position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
+        <a-box position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8" class="clickable"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
     </a-entity>
 
     <a-entity id="local-rig" 
-              movement-controls="speed: 0.3; controls: gamepad, keyboard"
+              gamepad-move="speed: 4.0; invertX: true"
               gamepad-look="sensitivity: 2.0"
-              gamepad-clicker
+              gamepad-interaction
+              wasd-controls
               wall-collider="width: 15; length: 15"
               random-spawn
               position="0 1.7 0">
         <a-entity camera look-controls="pointerLockEnabled: false">
-            <a-entity cursor="fuse: false"
+            <a-entity cursor="fuse: false; rayOrigin: entity"
                       raycaster="objects: .clickable"
                       position="0 0 -1"
                       geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
@@ -93,14 +94,60 @@
   </a-scene>
 
   <script>
-    // --- 1. GAMEPAD LOOK (Right Stick) ---
+    // --- 1. GAMEPAD MOVE (Left Stick with Inversion Fix) ---
+    AFRAME.registerComponent('gamepad-move', {
+      schema: {
+          speed: {default: 4.0},
+          deadzone: {default: 0.1},
+          invertX: {default: false} // Ensure this is true in HTML if left goes right
+      },
+      init: function() {
+          this.camera = document.querySelector('[camera]');
+      },
+      tick: function(time, dt) {
+          const gamepads = navigator.getGamepads();
+          const gamepad = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3]; // Check all slots
+          if (!gamepad) return;
+
+          // Standard Xbox mappings: 0 is Left Stick X, 1 is Left Stick Y
+          let x = gamepad.axes[0];
+          let z = gamepad.axes[1];
+
+          if (Math.abs(x) < this.data.deadzone) x = 0;
+          if (Math.abs(z) < this.data.deadzone) z = 0;
+
+          // Apply the fix
+          if (this.data.invertX) x *= -1; 
+
+          if (x === 0 && z === 0) return;
+
+          // Move relative to camera direction
+          const camRot = this.camera.getAttribute('rotation');
+          const angle = camRot.y * (Math.PI / 180);
+          
+          const x_prime = x * Math.cos(angle) + z * Math.sin(angle);
+          const z_prime = z * Math.cos(angle) - x * Math.sin(angle);
+
+          const pos = this.el.getAttribute('position');
+          const speed = this.data.speed * (dt / 1000); 
+
+          this.el.setAttribute('position', {
+              x: pos.x + x_prime * speed,
+              y: pos.y,
+              z: pos.z + z_prime * speed
+          });
+      }
+    });
+
+    // --- 2. GAMEPAD LOOK (Right Stick) ---
     AFRAME.registerComponent('gamepad-look', {
         schema: { sensitivity: {default: 2.0} },
         tick: function (time, timeDelta) {
             const gamepads = navigator.getGamepads();
-            if (!gamepads || !gamepads[0]) return;
-            const gp = gamepads[0];
-            // Axis 2 is usually the Right Stick X-axis
+            const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
+            if (!gp) return;
+            
+            // Axis 2 is usually Right Stick X
             const lookX = gp.axes[2];
             const dt = timeDelta / 1000;
             
@@ -112,48 +159,43 @@
         }
     });
 
-    // --- 2. GAMEPAD CLICKER ('A' Button) ---
-    AFRAME.registerComponent('gamepad-clicker', {
+    // --- 3. GAMEPAD INTERACTION ('A' Button to Click) ---
+    AFRAME.registerComponent('gamepad-interaction', {
         init: function() {
-            // Find the cursor inside the camera inside this rig
             this.cursorEl = this.el.querySelector('[cursor]');
             this.buttonPressed = false;
         },
         tick: function() {
             const gamepads = navigator.getGamepads();
-            if (!gamepads || !gamepads[0]) return;
-            const gp = gamepads[0];
+            const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
+            if (!gp) return;
 
-            // Button 0 is standard for 'A' (Xbox) or 'Cross' (PS)
+            // Button 0 is 'A' on Xbox
             if (gp.buttons[0].pressed) {
                 if (!this.buttonPressed) {
-                    this.triggerClick();
+                    this.clickObject();
                     this.buttonPressed = true;
                 }
             } else {
                 this.buttonPressed = false;
             }
         },
-        triggerClick: function() {
-            if (!this.cursorEl) return;
-            const raycaster = this.cursorEl.components.raycaster;
-            // Check if raycaster is intersecting a clickable object
-            if (raycaster && raycaster.intersectedEls.length > 0) {
-                const target = raycaster.intersectedEls[0];
-                target.emit('click');
-                
-                // Visual feedback on cursor
-                const mat = this.cursorEl.getAttribute('material');
-                const oldColor = mat.color;
-                this.cursorEl.setAttribute('material', 'color', '#e74c3c'); // Flash red
+        clickObject: function() {
+            if (!this.cursorEl || !this.cursorEl.components.raycaster) return;
+            const intersections = this.cursorEl.components.raycaster.intersectedEls;
+            if (intersections.length > 0) {
+                intersections[0].emit('click');
+                // Visual feedback
+                const oldColor = this.cursorEl.getAttribute('material').color;
+                this.cursorEl.setAttribute('material', 'color', 'yellow');
                 setTimeout(() => {
                     this.cursorEl.setAttribute('material', 'color', oldColor);
-                }, 100);
+                }, 150);
             }
         }
     });
 
-    // --- 3. NAME SYNC ---
+    // --- 4. EXISTING COMPONENTS (Sync Name, etc.) ---
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
@@ -190,7 +232,6 @@
         }
     });
 
-    // --- 4. RIG FOLLOWER ---
     AFRAME.registerComponent('rig-follow', {
       tick: function () {
         const cam = this.el.sceneEl.camera.el;
@@ -202,7 +243,6 @@
       }
     });
 
-    // --- 5. WALL COLLIDER ---
     AFRAME.registerComponent('wall-collider', {
       schema: {
         width: {default: 15},
@@ -220,7 +260,6 @@
       }
     });
 
-    // --- 6. ANIMATOR ---
     AFRAME.registerComponent('player-animator', {
         init: function() {
             this.model = this.el.querySelector('.model');
@@ -248,7 +287,6 @@
         }
     });
 
-    // --- 7. GAME LOGIC ---
     AFRAME.registerComponent('click-answer', {
         schema: { index: {type: 'int', default: 0} },
         init: function () {
