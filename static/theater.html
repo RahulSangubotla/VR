@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Fixed Bounds & Rig</title>
+  <title>VR Kahoot - First Person Fixed</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -82,46 +82,7 @@
   </a-scene>
 
   <script>
-    // --- 1. RIG FOLLOWER (THE FIX) ---
-    // Makes the avatar follow the camera position but ONLY syncs Y rotation (yaw).
-    // This prevents the body from tilting up/down when you look around in VR.
-    AFRAME.registerComponent('rig-follow', {
-      tick: function () {
-        const cam = this.el.sceneEl.camera.el;
-        if (!cam) return;
-
-        const camPos = cam.getAttribute('position');
-        const camRot = cam.getAttribute('rotation');
-
-        // Copy position exactly
-        this.el.setAttribute('position', camPos);
-
-        // Copy ONLY the Y rotation (turning left/right). 
-        // Force X and Z to 0 so the character stands straight.
-        this.el.setAttribute('rotation', {x: 0, y: camRot.y, z: 0});
-      }
-    });
-
-    // --- 2. WALL COLLIDER ---
-    AFRAME.registerComponent('wall-collider', {
-      schema: {
-        width: {default: 15},
-        length: {default: 15},
-        padding: {default: 0.4}
-      },
-      tick: function () {
-        const pos = this.el.object3D.position;
-        const halfWidth = (this.data.width / 2) - this.data.padding;
-        const halfLength = (this.data.length / 2) - this.data.padding;
-
-        if (pos.x < -halfWidth) pos.x = -halfWidth;
-        if (pos.x > halfWidth) pos.x = halfWidth;
-        if (pos.z < -halfLength) pos.z = -halfLength;
-        if (pos.z > halfLength) pos.z = halfLength;
-      }
-    });
-
-    // --- 3. NAME SYNC ---
+    // --- 1. NAME SYNC & VISIBILITY TOGGLE ---
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
@@ -134,10 +95,12 @@
                 const params = new URLSearchParams(window.location.search);
                 const myName = params.get('username') || 'Guest'; 
                 this.el.setAttribute('sync-name', 'name', myName);
-                // We keep visuals visible so you can see your body, 
-                // but if it blocks your view, you can uncomment the line below:
-                // const visuals = this.el.querySelector('.visuals');
-                // if (visuals) visuals.setAttribute('visible', false);
+
+                // --- THE FIX: Hide the local model so it doesn't block camera ---
+                const visuals = this.el.querySelector('.visuals');
+                if (visuals) {
+                    visuals.setAttribute('visible', false);
+                }
             }
         },
         update: function() {
@@ -158,6 +121,42 @@
             if (this.el.getObject3D('mesh')) apply();
             else this.el.addEventListener('model-loaded', apply);
         }
+    });
+
+    // --- 2. RIG FOLLOWER ---
+    AFRAME.registerComponent('rig-follow', {
+      tick: function () {
+        const cam = this.el.sceneEl.camera.el;
+        if (!cam) return;
+
+        const camPos = cam.getAttribute('position');
+        const camRot = cam.getAttribute('rotation');
+
+        // Copy position
+        this.el.setAttribute('position', camPos);
+
+        // Copy ONLY Y rotation (Yaw)
+        this.el.setAttribute('rotation', {x: 0, y: camRot.y, z: 0});
+      }
+    });
+
+    // --- 3. WALL COLLIDER ---
+    AFRAME.registerComponent('wall-collider', {
+      schema: {
+        width: {default: 15},
+        length: {default: 15},
+        padding: {default: 0.4}
+      },
+      tick: function () {
+        const pos = this.el.object3D.position;
+        const halfWidth = (this.data.width / 2) - this.data.padding;
+        const halfLength = (this.data.length / 2) - this.data.padding;
+
+        if (pos.x < -halfWidth) pos.x = -halfWidth;
+        if (pos.x > halfWidth) pos.x = halfWidth;
+        if (pos.z < -halfLength) pos.z = -halfLength;
+        if (pos.z > halfLength) pos.z = halfLength;
+      }
     });
 
     // --- 4. ANIMATOR ---
