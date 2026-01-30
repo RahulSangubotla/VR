@@ -1,50 +1,271 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>EduVerse - Camera Test</title>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VR SmartEd Classroom - Video Lesson</title>
     <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
     
-    <style>
-        body { margin: 0; overflow: hidden; background-color: transparent; }
-        
-        /* Force Button Styles */
-        #start-btn {
-            position: absolute;
-            bottom: 20%; left: 50%; transform: translateX(-50%);
-            z-index: 999;
-            padding: 15px 40px; font-size: 20px; font-weight: bold;
-            background: #00D2FF; color: white; border: none; border-radius: 30px;
-        }
-    </style>
-</head>
-
-<body>
-    <button id="start-btn">TEST CAMERA</button>
 
     <script>
-        const btn = document.getElementById('start-btn');
-        const scene = document.querySelector('a-scene');
+      // Main Lesson Logic Component
+      AFRAME.registerComponent("lesson-controller", {
+        schema: {
+          topic: { type: "string", default: "Human Heart Anatomy" },
+          lessonNotes: {
+            type: "string",
+          },
+        },
 
-        btn.addEventListener('click', () => {
-            btn.style.display = 'none';
-            // Request standard AR without Hit-Test first to see if camera works
-            scene.enterVR();
-        });
+        init: function () {
+          // DOM Elements
+          this.videoEl = document.querySelector("#lesson-video");
+          this.boardTextEl = document.querySelector("#board-text");
+          this.boardTitleEl = document.querySelector("#board-title");
+          this.boardVideoEntity = document.querySelector("#board-video");
+          this.statusIndicatorEl = document.querySelector("#status-indicator");
+
+          // State
+          this.isPlaying = false;
+          this.hasStarted = false;
+
+          // Initial Board Setup
+          this.boardTitleEl.setAttribute("value", this.data.topic);
+          this.boardTextEl.setAttribute(
+            "value",
+            "Press SPACEBAR or Click to Start Video Lesson",
+          );
+
+          this.boardVideoEntity.setAttribute("visible", false);
+
+          // Event Listeners
+          this.bindEvents();
+        },
+
+        bindEvents: function () {
+          window.addEventListener("keydown", (e) => {
+            if (e.code === "Space") {
+              this.togglePlayback();
+            }
+          });
+
+          this.el.addEventListener("click", () => {
+            this.togglePlayback();
+          });
+
+          this.el.addEventListener("triggerdown", () => {
+            this.togglePlayback();
+          });
+        },
+
+        togglePlayback: function () {
+          if (this.isPlaying) {
+            this.pauseLesson();
+          } else {
+            this.playLesson();
+          }
+        },
+
+        playLesson: function () {
+          this.isPlaying = true;
+
+          this.videoEl
+            .play()
+            .catch((e) =>
+              console.log("Video play failed (interaction needed first):", e),
+            );
+
+          if (!this.hasStarted) {
+            this.boardTextEl.setAttribute("value", this.data.lessonNotes);
+            this.boardVideoEntity.setAttribute("visible", true);
+            this.hasStarted = true;
+          }
+
+          this.statusIndicatorEl.setAttribute("value", "Status: Playing");
+          this.statusIndicatorEl.setAttribute("color", "#0FE6FF");
+        },
+
+        pauseLesson: function () {
+          this.isPlaying = false;
+          this.videoEl.pause();
+          this.statusIndicatorEl.setAttribute("value", "Status: Paused");
+          this.statusIndicatorEl.setAttribute("color", "#FFEB0F");
+        },
+      });
     </script>
+    <script>
+      AFRAME.registerComponent("stop-on-collide", {
+        init: function () {
+          this.el.addEventListener("hitstart", () => {
+            this.el.setAttribute("wasd-controls", "enabled", false);
+          });
 
-    <a-scene 
-      vr-mode-ui="enabled: false"
-      webxr="optionalFeatures: dom-overlay; overlayElement: #start-btn" 
-      renderer="alpha: true; antialias: true;"
-      background="color: transparent">
+          this.el.addEventListener("hitend", () => {
+            this.el.setAttribute("wasd-controls", "enabled", true);
+          });
+        },
+      });
+    </script>
+  </head>
+  <body>
+    <a-scene>
+      <a-assets>
+        <a-asset-item id="classroom-model" src="classroom.gltf"></a-asset-item>
 
-        <a-light type="directional" position="1 2 3" intensity="1.5"></a-light>
-        <a-light type="ambient" intensity="1"></a-light>
+        <video
+          id="lesson-video"
+          src="HeartAnatomy.mp4"
+          preload="auto"
+          crossorigin="anonymous"
+          playsinline
+          webkit-playsinline
+        ></video>
+      </a-assets>
 
-        <a-box position="0 0 -1" rotation="0 45 0" color="#4CC3D9" scale="0.3 0.3 0.3">
-            <a-animation attribute="rotation" to="0 405 0" dur="2000" repeat="indefinite" easing="linear"></a-animation>
-        </a-box>
+      <a-entity light="type: ambient; color: #FFF; intensity: 0.7"></a-entity>
+      <a-entity
+        light="type: directional; color: #FFF; intensity: 0.6; castShadow: true"
+        position="-1 2 1"
+      ></a-entity>
 
+      <a-sky color="#ECECEC"></a-sky>
+
+      <a-entity
+        gltf-model="#classroom-model"
+        position="0 0 0"
+        scale="1 1 1"
+      ></a-entity>
+
+      <!-- FRONT WALL -->
+      <a-box
+        position="0 1 -5"
+        width="12"
+        height="3"
+        depth="0.5"
+        class="collidable"
+        visible="false"
+      ></a-box>
+
+      <!-- BACK WALL -->
+      <a-box
+        position="0 1 5"
+        width="12"
+        height="3"
+        depth="0.5"
+        class="collidable"
+        visible="false"
+      ></a-box>
+
+      <!-- LEFT WALL -->
+      <a-box
+        position="-6 1 0"
+        width="0.5"
+        height="3"
+        depth="12"
+        class="collidable"
+        visible="false"
+      ></a-box>
+
+      <!-- RIGHT WALL -->
+      <a-box
+        position="6 1 0"
+        width="0.5"
+        height="3"
+        depth="12"
+        class="collidable"
+        visible="false"
+      ></a-box>
+
+      <!-- FLOOR -->
+      <a-box
+        position="0 -0.1 0"
+        width="12"
+        height="0.2"
+        depth="12"
+        class="collidable"
+        visible="false"
+      ></a-box>
+
+      <a-entity position="0 1.72 4.7" rotation="0 180 0">
+        <a-plane
+          width="7.3"
+          height="1.9"
+          color="#1a1a1a"
+          material="shader: flat"
+        ></a-plane>
+
+        <a-text
+          id="board-title"
+          value="Lesson Title"
+          position="2.05 0.4 0.01"
+          align="center"
+          width="3"
+          color="white"
+        >
+        </a-text>
+
+        <a-video
+          id="board-video"
+          src="#lesson-video"
+          width="3.8"
+          height="1.8"
+          position="-0.8 0 0.02"
+          visible="false"
+        >
+        </a-video>
+
+        <a-text
+          id="board-text"
+          value="Loading lesson..."
+          position="1.3 0 0.02"
+          align="left"
+          anchor="left"
+          width="1.8"
+          wrap-count="30"
+          color="white"
+        >
+        </a-text>
+
+        <a-text
+          id="status-indicator"
+          value="Status: Ready"
+          position="1.9 -0.63 0.02"
+          align="right"
+          width="2"
+          color="#4FFF0F"
+        >
+        </a-text>
+      </a-entity>
+
+      <a-entity
+        id="rig"
+        position="0 0 0"
+        rotation="0 180 0"
+        lesson-controller
+        aabb-collider="objects: .collidable"
+        stop-on-collide
+      >
+        <a-entity camera look-controls wasd-controls position="0 1.4 -1.1" aabb-collider="objects: .collidable"> 
+          <a-entity
+            cursor="fuse: false; rayOrigin: mouse;"
+            position="0 0 -1"
+            geometry="primitive: ring; radiusInner: 0.02; radiusOuter: 0.03"
+            material="color: black; shader: flat"
+            visible="false"
+          >
+          </a-entity>
+        </a-entity>
+
+        <a-entity
+          laser-controls="hand: right"
+          raycaster="objects: .clickable; far: 5"
+        ></a-entity>
+        <a-entity
+          laser-controls="hand: left"
+          raycaster="objects: .clickable; far: 5"
+        ></a-entity>
+      </a-entity>
     </a-scene>
-</body>
+  </body>
 </html>
