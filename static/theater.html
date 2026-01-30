@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - 15x15 Physics</title>
+  <title>VR Kahoot - Optimized 15x15</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -17,7 +17,9 @@
 </head>
 
 <body>
-  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;" physics="debug: false">
+  <a-scene 
+    networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;" 
+    physics="driver: worker; workerFps: 60; debug: false;">
     
     <a-assets>
       <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
@@ -39,16 +41,15 @@
     </a-assets>
 
     <a-sky color="#FFFFFF"></a-sky>
-    
     <a-entity light="type: ambient; color: #BBB; intensity: 0.7"></a-entity>
     <a-entity light="type: point; color: #FFF; intensity: 0.4" position="0 4 0"></a-entity>
     
-    <a-plane static-body position="0 0 0" rotation="-90 0 0" width="15" height="15" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
+    <a-plane static-body="shape: box" position="0 0 0" rotation="-90 0 0" width="15" height="15" color="#050505"></a-plane>
 
-    <a-plane static-body position="0 5 -7.5" width="15" height="15" color="#FFFFFF"></a-plane>
-    <a-plane static-body position="-7.5 5 0" rotation="0 90 0" width="15" height="15" color="#FFFFFF"></a-plane>
-    <a-plane static-body position="7.5 5 0" rotation="0 -90 0" width="15" height="15" color="#FFFFFF"></a-plane>
-    <a-plane static-body position="0 5 7.5" rotation="0 180 0" width="15" height="15" color="#FFFFFF"></a-plane>
+    <a-plane static-body="shape: box" position="0 5 -7.5" width="15" height="15" color="#FFFFFF"></a-plane>
+    <a-plane static-body="shape: box" position="-7.5 5 0" rotation="0 90 0" width="15" height="15" color="#FFFFFF"></a-plane>
+    <a-plane static-body="shape: box" position="7.5 5 0" rotation="0 -90 0" width="15" height="15" color="#FFFFFF"></a-plane>
+    <a-plane static-body="shape: box" position="0 5 7.5" rotation="0 180 0" width="15" height="15" color="#FFFFFF"></a-plane>
 
     <a-entity position="0 4 -7.4">
         <a-box width="9.2" height="5.2" depth="0.1" color="#222"></a-box>
@@ -67,7 +68,7 @@
     <a-entity id="player" 
               networked="template:#avatar-template; attachTemplateToLocal:true;"
               camera look-controls wasd-controls 
-              kinematic-body
+              kinematic-body="radius: 0.5"
               random-spawn
               position="0 1.7 0">
         <a-entity cursor="fuse: false"
@@ -116,26 +117,27 @@
         }
     });
 
-    // 2. ANIMATOR
+    // 2. ANIMATOR (Optimized Tick Rate)
     AFRAME.registerComponent('player-animator', {
         init: function() {
             this.model = this.el.querySelector('.model');
             this.prevPos = new THREE.Vector3();
             this.currentAnim = "Idle";
+            this.tick = AFRAME.utils.throttleTick(this.tick, 100, this); // Run every 100ms instead of every frame
         },
         tick: function() {
             if (!this.model) return;
             const currentPos = this.el.object3D.getWorldPosition(new THREE.Vector3());
             const distSq = currentPos.distanceToSquared(this.prevPos);
             
-            if (distSq > 0.0001) { 
+            if (distSq > 0.0005) { // Slightly higher threshold to ignore tiny camera jitters
                 if (this.currentAnim !== "Walking") {
-                    this.model.setAttribute('animation-mixer', 'clip: Walking; crossFadeDuration: 0.2; loop: repeat');
+                    this.model.setAttribute('animation-mixer', 'clip: Walking; crossFadeDuration: 0.2');
                     this.currentAnim = "Walking";
                 }
             } else {
                 if (this.currentAnim !== "Idle") {
-                    this.model.setAttribute('animation-mixer', 'clip: Idle; crossFadeDuration: 0.2; loop: repeat');
+                    this.model.setAttribute('animation-mixer', 'clip: Idle; crossFadeDuration: 0.2');
                     this.currentAnim = "Idle";
                 }
             }
@@ -150,14 +152,11 @@
             this.el.addEventListener('click', () => {
                 if (window.gameSocket && window.gameSocket.connected) {
                     window.gameSocket.emit('submit_answer', this.data.index);
-                    this.el.setAttribute('scale', '0.9 0.9 0.9');
-                    setTimeout(() => this.el.setAttribute('scale', '1 1 1'), 150);
                 }
             });
         }
     });
 
-    // Updated spawn range for 15x15 boundaries
     AFRAME.registerComponent('random-spawn', {
       init: function () {
         this.el.setAttribute('position', `${(Math.random() * 10) - 5} 1.7 ${(Math.random() * 10) - 5}`);
@@ -186,20 +185,13 @@
             const text = `${data.q}\n\nA: ${data.options[0]}   B: ${data.options[1]}\nC: ${data.options[2]}   D: ${data.options[3]}`;
             const screen = document.querySelector('#screen-text');
             if(screen) screen.setAttribute('text', { value: text, color: 'white' });
-            
-            document.querySelector('#timer-bar').setAttribute('width', 9);
-            document.querySelector('#timer-bar').setAttribute('color', '#00ff00');
             document.querySelector('#answer-buttons').setAttribute('visible', true);
-            document.querySelectorAll('[click-answer]').forEach(el => el.setAttribute('scale', '1 1 1'));
         });
 
         window.gameSocket.on('timer_update', (timeLeft) => {
             const width = (timeLeft / 15) * 9;
             const bar = document.querySelector('#timer-bar');
-            if(bar) {
-                bar.setAttribute('width', width);
-                if(timeLeft <= 5) bar.setAttribute('color', 'red');
-            }
+            if(bar) bar.setAttribute('width', width);
         });
 
         window.gameSocket.on('show_results', (data) => {
