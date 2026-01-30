@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Models Fixed</title>
+  <title>VR Kahoot - Final Stable</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -21,6 +21,14 @@
   </style>
 
   <script>
+    // 0. SETUP ICE SERVERS (Fixes AWS Lag)
+    if (window.easyrtc) {
+        easyrtc.setSocketUrl(":8081"); 
+        easyrtc.setIceConfig({
+            iceServers: [ { urls: "stun:stun1.l.google.com:19302" } ]
+        });
+    }
+
     // 1. AUTO CONNECT
     AFRAME.registerComponent('auto-connect', {
       init: function() {
@@ -34,8 +42,7 @@
           room: 'kahoot-vr-room',
           adapter: 'wseasyrtc',
           serverURL: avatarServerUrl,
-          audio: true,
-          iceServers: [ { 'urls': 'stun:stun1.l.google.com:19302' } ] 
+          audio: true
         });
       }
     });
@@ -50,7 +57,7 @@
         }
     });
 
-    // 3. STRONG WALL COLLISIONS
+    // 3. SMOOTH WALL COLLISIONS (Fixes "Messed Up Controls")
     AFRAME.registerComponent('room-bounds', {
       schema: { 
         minX: {default: -9.5}, maxX: {default: 9.5}, 
@@ -58,10 +65,11 @@
       },
       tick: function() {
         const pos = this.el.object3D.position;
-        if (pos.x < this.data.minX) pos.x = this.data.minX;
-        if (pos.x > this.data.maxX) pos.x = this.data.maxX;
-        if (pos.z < this.data.minZ) pos.z = this.data.minZ;
-        if (pos.z > this.data.maxZ) pos.z = this.data.maxZ;
+        // Push back slightly (0.1m) so controls don't get "sticky"
+        if (pos.x < this.data.minX) pos.x = this.data.minX + 0.1;
+        if (pos.x > this.data.maxX) pos.x = this.data.maxX - 0.1;
+        if (pos.z < this.data.minZ) pos.z = this.data.minZ + 0.1;
+        if (pos.z > this.data.maxZ) pos.z = this.data.maxZ - 0.1;
       }
     });
   </script>
@@ -90,7 +98,6 @@
         </a-entity>
       </template>
     </a-assets>
-    
 
     <a-sky color="#FFFFFF"></a-sky>
     <a-entity light="type: ambient; color: #BBB; intensity: 0.7"></a-entity>
@@ -142,7 +149,7 @@
   </a-scene>
 
   <script>
-    // 4. NAME SYNC (Fixed to correctly find the mesh inside the child)
+    // 4. NAME SYNC (Modified to SHOW model for local player testing)
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
@@ -150,9 +157,8 @@
             setTimeout(() => this.trySetName(), 500);
             setTimeout(() => this.trySetName(), 1500);
             
-            // Listen for model loading to apply color
+            // Listen for model loading to apply color immediately
             this.el.addEventListener('model-loaded', (evt) => {
-                // Ensure we are coloring the mesh that just loaded
                 const obj = evt.detail.model; 
                 this.updateColor(this.data.name, obj);
             });
@@ -163,9 +169,11 @@
                 const myName = params.get('username') || 'Guest'; 
                 this.el.setAttribute('sync-name', 'name', myName);
                 
-                // Hide LOCAL visuals so you don't block your own camera
-                const visuals = this.el.querySelector('.visuals');
-                if (visuals) visuals.setAttribute('visible', false);
+                // --- DEBUG: VISIBLE MODEL ---
+                // I commented this out so you can SEE your own model to confirm it loads.
+                // Once it works, you can uncomment this to hide your body again.
+                // const visuals = this.el.querySelector('.visuals');
+                // if (visuals) visuals.setAttribute('visible', false);
             }
         },
         update: function() {
@@ -189,7 +197,6 @@
             obj.traverse(n => { 
                 if (n.isMesh) {
                     n.material.color.set(color);
-                    // Ensure material doesn't look flat/black
                     n.material.needsUpdate = true;
                 } 
             });
