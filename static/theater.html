@@ -2,80 +2,24 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Final Production</title>
+  <title>VR Kahoot - High Contrast</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
   <script>window.ioGame = window.io;</script> 
-  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.5.0/socket.io.slim.js"></script>
 
   <script src="https://unpkg.com/easyrtc@1.1.0/api/easyrtc.js"></script>
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
-
-  <style>
-    /* Hide the Enter VR button initially until loaded */
-    .a-enter-vr { z-index: 9999; }
-  </style>
-
-  <script>
-    // 1. AUTO CONNECT
-    AFRAME.registerComponent('auto-connect', {
-      init: function() {
-        const protocol = window.location.protocol;
-        const hostname = window.location.hostname;
-        const avatarServerUrl = `${protocol}//${hostname}:8081`; 
-
-        console.log(`🔌 Configuring NAF to connect to: ${avatarServerUrl}`);
-
-        this.el.setAttribute('networked-scene', {
-          room: 'kahoot-vr-room',
-          adapter: 'wseasyrtc',
-          serverURL: avatarServerUrl,
-          audio: true,
-          // This handles the AWS Firewall punching automatically
-          iceServers: [ { 'urls': 'stun:stun1.l.google.com:19302' } ] 
-        });
-      }
-    });
-
-    // 2. BODY ROTATION LOCK (Keeps you upright)
-    AFRAME.registerComponent('rotate-with-camera', {
-        tick: function() {
-            const camera = this.el.sceneEl.querySelector('[camera]');
-            if (!camera) return;
-            const camRot = camera.getAttribute('rotation');
-            this.el.setAttribute('rotation', { x: 0, y: camRot.y, z: 0 });
-        }
-    });
-
-    // 3. SMOOTH WALL COLLISIONS
-    AFRAME.registerComponent('room-bounds', {
-      schema: { 
-        minX: {default: -9.5}, maxX: {default: 9.5}, 
-        minZ: {default: -9.5}, maxZ: {default: 9.5} 
-      },
-      tick: function() {
-        const pos = this.el.object3D.position;
-        // Soft push-back so you don't get stuck
-        if (pos.x < this.data.minX) pos.x = this.data.minX + 0.1;
-        if (pos.x > this.data.maxX) pos.x = this.data.maxX - 0.1;
-        if (pos.z < this.data.minZ) pos.z = this.data.minZ + 0.1;
-        if (pos.z > this.data.maxZ) pos.z = this.data.maxZ - 0.1;
-      }
-    });
-  </script>
 </head>
 
 <body>
-  <div id="hidden-ar-button" style="display: none;"></div>
-
-  <a-scene auto-connect vr-mode-ui="enterARButton: #hidden-ar-button;">
+  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;">
     
     <a-assets>
-      <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r147/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
+      <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
 
       <template id="avatar-template">
         <a-entity class="avatar" sync-name player-animator>
@@ -87,6 +31,7 @@
                         position="0 -1.6 0"
                         animation-mixer="clip: Idle; crossFadeDuration: 0.4">
               </a-entity>
+              
               <a-text class="nametag" value="Loading..." align="center" position="0 0.8 0" rotation="0 180 0" scale="0.5 0.5 0.5" color="yellow" side="double"></a-text>
           </a-entity>
         </a-entity>
@@ -94,18 +39,18 @@
     </a-assets>
 
     <a-sky color="#FFFFFF"></a-sky>
+    
     <a-entity light="type: ambient; color: #BBB; intensity: 0.7"></a-entity>
     <a-entity light="type: point; color: #FFF; intensity: 0.4" position="0 4 0"></a-entity>
     
-    <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
-    <a-plane position="0 6 0" rotation="90 0 0" width="20" height="20" color="#EEEEEE"></a-plane>
+    <a-plane position="0 0 -4" rotation="-90 0 0" width="50" height="50" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
 
-    <a-plane position="0 3 -10" width="20" height="6" color="#FFFFFF"></a-plane>
-    <a-plane position="0 3 10" rotation="0 180 0" width="20" height="6" color="#FFFFFF"></a-plane>
-    <a-plane position="-10 3 0" rotation="0 90 0" width="20" height="6" color="#FFFFFF"></a-plane>
-    <a-plane position="10 3 0" rotation="0 -90 0" width="20" height="6" color="#FFFFFF"></a-plane>
+    <a-plane position="0 5 -12" width="50" height="15" color="#FFFFFF"></a-plane>
+    <a-plane position="-25 5 -4" rotation="0 90 0" width="50" height="15" color="#FFFFFF"></a-plane>
+    <a-plane position="25 5 -4" rotation="0 -90 0" width="50" height="15" color="#FFFFFF"></a-plane>
+    <a-plane position="0 5 15" rotation="0 180 0" width="50" height="15" color="#FFFFFF"></a-plane>
 
-    <a-entity position="0 3 -9.9">
+    <a-entity position="0 4 -9.9">
         <a-box width="9.2" height="5.2" depth="0.1" color="#222"></a-box>
         <a-plane position="0 0 0.06" width="9" height="5" color="#000"></a-plane>
         <a-box id="timer-bar" position="0 2.3 0.1" width="9" height="0.2" depth="0.01" color="#00ff00"></a-box>
@@ -119,43 +64,28 @@
         <a-box position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
     </a-entity>
 
-    <a-entity id="player-rig" 
-              wasd-controls 
-              room-bounds="minX: -9.5; maxX: 9.5; minZ: -9.5; maxZ: 9.5"
-              random-spawn 
+    <a-entity id="player" 
+              networked="template:#avatar-template; attachTemplateToLocal:true;"
+              camera look-controls wasd-controls 
+              random-spawn
               position="0 1.7 0">
-        
-        <a-entity camera look-controls position="0 0 0">
-            <a-entity cursor="fuse: false"
-                      position="0 0 -1"
-                      geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
-                      material="color: #3BB143; shader: flat">
-            </a-entity>
+        <a-entity cursor="fuse: false"
+                  position="0 0 -1"
+                  geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
+                  material="color: #3BB143; shader: flat">
         </a-entity>
-
-        <a-entity id="player-body"
-                  networked="template:#avatar-template; attachTemplateToLocal:true;"
-                  rotate-with-camera>
-        </a-entity>
-
     </a-entity>
-
   </a-scene>
 
   <script>
-    // 4. NAME SYNC (MODEL HIDDEN FOR SELF)
+    // 1. NAME SYNC (Includes Retry Logic)
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
             this.trySetName();
+            // Retry twice in case network is slow
             setTimeout(() => this.trySetName(), 500);
             setTimeout(() => this.trySetName(), 1500);
-            
-            // Listen for model loading to apply color immediately
-            this.el.addEventListener('model-loaded', (evt) => {
-                const obj = evt.detail.model; 
-                this.updateColor(this.data.name, obj);
-            });
         },
         trySetName: function() {
             if (NAF.utils.isMine(this.el)) {
@@ -163,40 +93,33 @@
                 const myName = params.get('username') || 'Guest'; 
                 this.el.setAttribute('sync-name', 'name', myName);
                 
-                // === HIDE SELF ===
-                // This makes the 'visuals' entity invisible ONLY for the local user.
+                // Hide my own body locally
                 const visuals = this.el.querySelector('.visuals');
                 if (visuals) visuals.setAttribute('visible', false);
             }
         },
         update: function() {
+            const name = this.data.name;
             const textEl = this.el.querySelector('.nametag');
-            if (textEl) textEl.setAttribute('value', this.data.name);
-            
-            // Try to find mesh if it's already loaded
-            const modelEl = this.el.querySelector('.model');
-            if (modelEl) {
-                const obj = modelEl.getObject3D('mesh');
-                if (obj) this.updateColor(this.data.name, obj);
-            }
+            if (textEl) textEl.setAttribute('value', name);
+            this.updateColor(name);
         },
-        updateColor: function(name, obj) {
-            if (!obj) return;
+        updateColor: function(name) {
             let hash = 0;
             for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
             let color = '#';
             for (let i = 0; i < 3; i++) color += ('00' + ((hash >> (i * 8)) & 0xFF).toString(16)).substr(-2);
             
-            obj.traverse(n => { 
-                if (n.isMesh) {
-                    n.material.color.set(color);
-                    n.material.needsUpdate = true;
-                } 
-            });
+            const apply = () => {
+                const obj = this.el.getObject3D('mesh');
+                if (obj) obj.traverse(n => { if (n.isMesh) n.material.color.set(color); });
+            };
+            if (this.el.getObject3D('mesh')) apply();
+            else this.el.addEventListener('model-loaded', apply);
         }
     });
 
-    // 5. ANIMATOR
+    // 2. ANIMATOR
     AFRAME.registerComponent('player-animator', {
         init: function() {
             this.model = this.el.querySelector('.model');
@@ -205,10 +128,7 @@
         },
         tick: function() {
             if (!this.model) return;
-            const rig = document.querySelector("#player-rig");
-            if(!rig) return;
-            
-            const currentPos = rig.object3D.getWorldPosition(new THREE.Vector3());
+            const currentPos = this.el.object3D.getWorldPosition(new THREE.Vector3());
             const distSq = currentPos.distanceToSquared(this.prevPos);
             
             if (distSq > 0.0001) { 
@@ -226,7 +146,7 @@
         }
     });
 
-    // 6. GAME LOGIC
+    // 3. GAME LOGIC
     AFRAME.registerComponent('click-answer', {
         schema: { index: {type: 'int', default: 0} },
         init: function () {
@@ -246,15 +166,21 @@
       }
     });
 
-    // 7. BOOTSTRAP
+    // 4. BOOTSTRAP
     window.addEventListener('load', function() {
         console.log("Connecting...");
+        
         NAF.schemas.add({
             template: '#avatar-template',
-            components: ['position', 'rotation', { component: 'sync-name', property: 'name' }]
+            components: [
+                'position', 
+                'rotation',
+                { component: 'sync-name', property: 'name' } 
+            ]
         });
 
         window.gameSocket = window.ioGame(`${window.location.protocol}//${window.location.hostname}:8080`);
+        
         
         window.gameSocket.on('connect', () => {
             const params = new URLSearchParams(window.location.search);
@@ -269,6 +195,7 @@
             document.querySelector('#timer-bar').setAttribute('width', 9);
             document.querySelector('#timer-bar').setAttribute('color', '#00ff00');
             document.querySelector('#answer-buttons').setAttribute('visible', true);
+            
             document.querySelectorAll('[click-answer]').forEach(el => el.setAttribute('scale', '1 1 1'));
         });
 
@@ -286,6 +213,14 @@
             document.querySelector('#answer-buttons').setAttribute('visible', false);
         });
     });
+    const serverUrl = `${window.location.protocol}//${window.location.hostname}:8081`; // Port 8081 for Avatar server
+
+    document.querySelector('a-scene').setAttribute('networked-scene', {
+    room: 'kahoot-vr-room',
+    adapter: 'wseasyrtc',
+    serverURL: serverUrl
+    });
   </script>
+  
 </body>
 </html>
