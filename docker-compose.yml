@@ -8,8 +8,17 @@ services:
     ports:
       - "8080:8080"
     restart: unless-stopped
+    # FREE TIER: Limit memory usage for t2.micro (1GB RAM)
+    deploy:
+      resources:
+        limits:
+          memory: 400M
+        reservations:
+          memory: 200M
     networks:
       - vr-kahoot-network
+    environment:
+      - PYTHONUNBUFFERED=1
 
   # Avatar Server (Node.js + Socket.IO for VR avatars)
   avatar-server:
@@ -18,8 +27,17 @@ services:
     ports:
       - "8081:8081"
     restart: unless-stopped
+    # FREE TIER: Limit memory usage for t2.micro
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+        reservations:
+          memory: 150M
     networks:
       - vr-kahoot-network
+    environment:
+      - NODE_ENV=production
 
 networks:
   vr-kahoot-network:

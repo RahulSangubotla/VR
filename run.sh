@@ -1,36 +1,70 @@
 #!/bin/bash
 
+# VR Kahoot - AWS Free Tier Local Runner
+# Optimized for lightweight deployment on t2.micro
+
 # Exit on error
 set -e
 
-# --- Install Dependencies ---
-# echo "Installing Python dependencies..."
-# pip install -r requirements.txt
+echo "🚀 Starting VR Kahoot (Free Tier Mode)..."
 
-# echo "Installing Node.js dependencies for avatar server..."
-# (cd avatar-server && npm install)
+# Check available memory
+AVAILABLE_MEM=$(free -m | grep ^Mem | awk '{print $7}')
+echo "💾 Available memory: ${AVAILABLE_MEM}MB"
+
+if [ $AVAILABLE_MEM -lt 200 ]; then
+    echo "⚠️  WARNING: Low memory detected! Consider stopping other services."
+fi
+
+# --- Install Dependencies (Free Tier - Direct install) ---
+echo "📦 Checking dependencies..."
+
+# Check if pip packages are installed
+if ! python3 -c "import fastapi" 2>/dev/null; then
+    echo "Installing Python dependencies..."
+    pip3 install -r requirements.txt --user
+fi
+
+# Check if node modules are installed
+if [ ! -d "avatar-server/node_modules" ]; then
+    echo "Installing Node.js dependencies..."
+    (cd avatar-server && npm install)
+fi
 
 # --- Cleanup any existing processes ---
-echo "Cleaning up any existing processes..."
+echo "🧹 Cleaning up any existing processes..."
 pkill -f "node server.js" || true
+pkill -f "python3 main.py" || true
 pkill -f "python main.py" || true
-sleep 1
+sleep 2
 
-# --- Start Servers ---
-echo "Starting Avatar Server in the background..."
-(cd avatar-server && node server.js) &
+# --- Start Servers (Free Tier Method) ---
+echo "🎮 Starting Avatar Server in the background..."
+(cd avatar-server && nohup node server.js > ../avatar-server.log 2>&1 &)
 AVATAR_PID=$!
 
-echo "Starting Game Server..."
+echo "🎯 Starting Main Game Server..."
 # Use 'trap' to ensure cleanup happens on exit
-trap "kill $AVATAR_PID" EXIT
+trap "kill $AVATAR_PID 2>/dev/null || true" EXIT
 
-# Initialize conda for this shell session
-eval "$(conda shell.bash hook)" 2>/dev/null || eval "$(/home/$USER/miniconda3/bin/conda shell.bash hook)" 2>/dev/null || eval "$(/home/$USER/anaconda3/bin/conda shell.bash hook)" 2>/dev/null
-
-# Activate the conda environment and run the Python server
-conda activate vivitsu
-python main.py
+# Check if conda is available (optional)
+if command -v conda &> /dev/null; then
+    echo "🐍 Conda detected, trying to activate environment..."
+    # Initialize conda for this shell session
+    eval "$(conda shell.bash hook)" 2>/dev/null || eval "$(/home/$USER/miniconda3/bin/conda shell.bash hook)" 2>/dev/null || eval "$(/home/$USER/anaconda3/bin/conda shell.bash hook)" 2>/dev/null
+    
+    # Try to activate environment, fallback to system python if it fails
+    if conda activate vivitsu 2>/dev/null; then
+        echo "✅ Using conda environment: vivitsu"
+        python main.py
+    else
+        echo "⚠️  Conda environment 'vivitsu' not found, using system Python3"
+        python3 main.py
+    fi
+else
+    echo "🐍 Using system Python3..."
+    python3 main.py
+fi
 
 # --- Cleanup ---
 # The trap command above will handle the cleanup.
