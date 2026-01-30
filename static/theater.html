@@ -2,18 +2,24 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Fixed Controls</title>
+  <title>VR Kahoot - No AR Button (Fixed)</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
   <script>window.ioGame = window.io;</script> 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.5.0/socket.io.slim.js"></script>
+
   <script src="https://unpkg.com/easyrtc@1.1.0/api/easyrtc.js"></script>
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
   
   <style>
-    .a-enter-ar-button { display: none !important; }
+    /* SAFELY HIDE AR BUTTON */
+    /* This hides the specific AR button without breaking A-Frame's logic */
+    .a-enter-ar-button {
+        display: none !important;
+    }
   </style>
 </head>
 
@@ -39,16 +45,16 @@
       </template>
     </a-assets>
 
-    <a-sky color="#87CEEB"></a-sky>
+    <a-sky color="#FFFFFF"></a-sky>
     <a-entity light="type: ambient; color: #BBB; intensity: 0.7"></a-entity>
     <a-entity light="type: point; color: #FFF; intensity: 0.4" position="0 4 0"></a-entity>
     
-    <a-plane position="0 0 0" rotation="-90 0 0" width="15" height="15" color="#222" material="roughness: 0.4; metalness: 0.2"></a-plane>
+    <a-plane position="0 0 0" rotation="-90 0 0" width="15" height="15" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
 
-    <a-plane position="0 5 -7.5" width="15" height="15" color="#EEE"></a-plane>
-    <a-plane position="-7.5 5 0" rotation="0 90 0" width="15" height="15" color="#EEE"></a-plane>
-    <a-plane position="7.5 5 0" rotation="0 -90 0" width="15" height="15" color="#EEE"></a-plane>
-    <a-plane position="0 5 7.5" rotation="0 180 0" width="15" height="15" color="#EEE"></a-plane>
+    <a-plane position="0 5 -7.5" width="15" height="15" color="#FFFFFF"></a-plane>
+    <a-plane position="-7.5 5 0" rotation="0 90 0" width="15" height="15" color="#FFFFFF"></a-plane>
+    <a-plane position="7.5 5 0" rotation="0 -90 0" width="15" height="15" color="#FFFFFF"></a-plane>
+    <a-plane position="0 5 7.5" rotation="0 180 0" width="15" height="15" color="#FFFFFF"></a-plane>
 
     <a-entity position="0 4 -7.4">
         <a-box width="9.2" height="5.2" depth="0.1" color="#222"></a-box>
@@ -57,29 +63,22 @@
         <a-entity id="screen-text" text="value: Waiting for Host...; align: center; width: 8; color: white" position="0 0.5 0.1"></a-entity>
     </a-entity>
 
-    <a-entity id="answer-buttons" position="0 1.2 -3" visible="false">
-        <a-box class="clickable" position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box class="clickable" position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box class="clickable" position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
-        <a-box class="clickable" position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
+    <a-entity id="answer-buttons" position="0 1.5 -3" visible="false">
+        <a-box position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
+        <a-box position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
     </a-entity>
 
     <a-entity id="local-rig" 
-              wasd-controls="acceleration: 20" 
-              gamepad-move="speed: 5.0" 
-              gamepad-look="sensitivity: 2.0"
-              gamepad-clicker
+              camera look-controls wasd-controls
               wall-collider="width: 15; length: 15"
               random-spawn
-              position="0 0 0">
-        
-        <a-entity id="main-camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: true">
-            <a-entity cursor="fuse: false"
-                      raycaster="objects: .clickable"
-                      position="0 0 -1"
-                      geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
-                      material="color: #3BB143; shader: flat">
-            </a-entity>
+              position="0 1.7 0">
+        <a-entity cursor="fuse: false"
+                  position="0 0 -1"
+                  geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
+                  material="color: #3BB143; shader: flat">
         </a-entity>
     </a-entity>
 
@@ -91,134 +90,87 @@
   </a-scene>
 
   <script>
-    // --- 1. FIXED GAMEPAD MOVE (Relative to Camera View) ---
-    AFRAME.registerComponent('gamepad-move', {
-      schema: { speed: {default: 5.0}, deadzone: {default: 0.15} },
-      init: function() {
-        this.camera = document.querySelector('[camera]');
-      },
-      tick: function(time, dt) {
-        const gamepads = navigator.getGamepads();
-        const gp = gamepads[0] || gamepads[1];
-        if (!gp) return;
-
-        let x = gp.axes[0]; 
-        let z = gp.axes[1]; 
-
-        if (Math.abs(x) < this.data.deadzone) x = 0;
-        if (Math.abs(z) < this.data.deadzone) z = 0;
-        if (x === 0 && z === 0) return;
-
-        // Get Rig rotation and Camera rotation combined
-        const angle = this.camera.object3D.rotation.y + this.el.object3D.rotation.y;
-
-        const moveX = x * Math.cos(angle) + z * Math.sin(angle);
-        const moveZ = z * Math.cos(angle) - x * Math.sin(angle);
-
-        const dTime = dt / 1000;
-        this.el.object3D.position.x += moveX * this.data.speed * dTime;
-        this.el.object3D.position.z += moveZ * this.data.speed * dTime;
-      }
-    });
-
-    // --- 2. FIXED GAMEPAD LOOK (Snap/Smooth Rotation) ---
-    AFRAME.registerComponent('gamepad-look', {
-        schema: { sensitivity: {default: 2.0} },
-        tick: function (time, dt) {
-            const gamepads = navigator.getGamepads();
-            const gp = gamepads[0] || gamepads[1];
-            if (!gp) return;
-            
-            const lookX = gp.axes[2]; // Right Stick
-            if (Math.abs(lookX) < 0.1) return;
-
-            const rotation = this.el.getAttribute('rotation');
-            rotation.y -= lookX * this.data.sensitivity;
-            this.el.setAttribute('rotation', rotation);
-        }
-    });
-
-    // --- 3. GAMEPAD CLICKER (Button 0 = A) ---
-    AFRAME.registerComponent('gamepad-clicker', {
-        init: function() {
-            this.cursorEl = this.el.querySelector('[cursor]');
-            this.buttonPressed = false;
-        },
-        tick: function() {
-            const gamepads = navigator.getGamepads();
-            const gp = gamepads[0] || gamepads[1];
-            if (!gp) return;
-
-            if (gp.buttons[0].pressed) {
-                if (!this.buttonPressed) {
-                    this.triggerClick();
-                    this.buttonPressed = true;
-                }
-            } else { this.buttonPressed = false; }
-        },
-        triggerClick: function() {
-            const raycaster = this.cursorEl.components.raycaster;
-            if (raycaster && raycaster.intersectedEls.length > 0) {
-                raycaster.intersectedEls[0].emit('click');
-            }
-        }
-    });
-
-    // --- 4. NETWORKING & SYNC ---
+    // --- 1. NAME SYNC & VISIBILITY ---
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
+            this.trySetName();
+            setTimeout(() => this.trySetName(), 500);
+            setTimeout(() => this.trySetName(), 1500);
+        },
+        trySetName: function() {
             if (NAF.utils.isMine(this.el)) {
                 const params = new URLSearchParams(window.location.search);
-                this.el.setAttribute('sync-name', 'name', params.get('username') || 'Guest');
+                const myName = params.get('username') || 'Guest'; 
+                this.el.setAttribute('sync-name', 'name', myName);
                 const visuals = this.el.querySelector('.visuals');
                 if (visuals) visuals.setAttribute('visible', false);
             }
         },
         update: function() {
+            const name = this.data.name;
             const textEl = this.el.querySelector('.nametag');
-            if (textEl) textEl.setAttribute('value', this.data.name);
+            if (textEl) textEl.setAttribute('value', name);
+            this.updateColor(name);
+        },
+        updateColor: function(name) {
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+            let color = '#';
+            for (let i = 0; i < 3; i++) color += ('00' + ((hash >> (i * 8)) & 0xFF).toString(16)).substr(-2);
+            const apply = () => {
+                const obj = this.el.getObject3D('mesh');
+                if (obj) obj.traverse(n => { if (n.isMesh) n.material.color.set(color); });
+            };
+            if (this.el.getObject3D('mesh')) apply();
+            else this.el.addEventListener('model-loaded', apply);
         }
     });
 
+    // --- 2. RIG FOLLOWER ---
     AFRAME.registerComponent('rig-follow', {
       tick: function () {
-        const rig = document.querySelector('#local-rig');
-        const cam = document.querySelector('#main-camera');
-        if (!rig || !cam) return;
-        
-        // Sync the networked avatar position to the local rig
-        this.el.object3D.position.copy(rig.object3D.position);
-        
-        // Sync rotation to the camera's world rotation
-        const worldRot = new THREE.Euler();
-        cam.object3D.getWorldQuaternion(new THREE.Quaternion());
-        this.el.object3D.rotation.y = cam.object3D.rotation.y + rig.object3D.rotation.y;
+        const cam = this.el.sceneEl.camera.el;
+        if (!cam) return;
+        const camPos = cam.getAttribute('position');
+        const camRot = cam.getAttribute('rotation');
+        this.el.setAttribute('position', camPos);
+        this.el.setAttribute('rotation', {x: 0, y: camRot.y, z: 0});
       }
     });
 
+    // --- 3. WALL COLLIDER ---
     AFRAME.registerComponent('wall-collider', {
-      schema: { width: {default: 15}, length: {default: 15}, padding: {default: 0.5} },
+      schema: {
+        width: {default: 15},
+        length: {default: 15},
+        padding: {default: 0.4}
+      },
       tick: function () {
         const pos = this.el.object3D.position;
-        const hW = (this.data.width / 2) - this.data.padding;
-        const hL = (this.data.length / 2) - this.data.padding;
-        pos.x = Math.max(-hW, Math.min(hW, pos.x));
-        pos.z = Math.max(-hL, Math.min(hL, pos.z));
+        const halfWidth = (this.data.width / 2) - this.data.padding;
+        const halfLength = (this.data.length / 2) - this.data.padding;
+        if (pos.x < -halfWidth) pos.x = -halfWidth;
+        if (pos.x > halfWidth) pos.x = halfWidth;
+        if (pos.z < -halfLength) pos.z = -halfLength;
+        if (pos.z > halfLength) pos.z = halfLength;
       }
     });
 
+    // --- 4. ANIMATOR ---
     AFRAME.registerComponent('player-animator', {
         init: function() {
             this.model = this.el.querySelector('.model');
             this.prevPos = new THREE.Vector3();
             this.currentAnim = "Idle";
+            this.tick = AFRAME.utils.throttleTick(this.tick, 100, this);
         },
         tick: function() {
             if (!this.model) return;
-            const currPos = this.el.object3D.position;
-            const dist = currPos.distanceTo(this.prevPos);
-            if (dist > 0.01) {
+            const currentPos = this.el.object3D.getWorldPosition(new THREE.Vector3());
+            const distSq = currentPos.distanceToSquared(this.prevPos);
+            
+            if (distSq > 0.0005) { 
                 if (this.currentAnim !== "Walking") {
                     this.model.setAttribute('animation-mixer', 'clip: Walking; crossFadeDuration: 0.2');
                     this.currentAnim = "Walking";
@@ -229,18 +181,19 @@
                     this.currentAnim = "Idle";
                 }
             }
-            this.prevPos.copy(currPos);
+            this.prevPos.copy(currentPos);
         }
     });
 
+    // --- 5. GAME LOGIC ---
     AFRAME.registerComponent('click-answer', {
-        schema: { index: {type: 'int'} },
+        schema: { index: {type: 'int', default: 0} },
         init: function () {
             this.el.addEventListener('click', () => {
-                if (window.gameSocket) {
+                if (window.gameSocket && window.gameSocket.connected) {
                     window.gameSocket.emit('submit_answer', this.data.index);
-                    this.el.setAttribute('scale', '0.8 0.8 0.8');
-                    setTimeout(() => this.el.setAttribute('scale', '1 1 1'), 100);
+                    this.el.setAttribute('scale', '0.9 0.9 0.9');
+                    setTimeout(() => this.el.setAttribute('scale', '1 1 1'), 150);
                 }
             });
         }
@@ -248,35 +201,53 @@
 
     AFRAME.registerComponent('random-spawn', {
       init: function () {
-        this.el.setAttribute('position', `${(Math.random() * 10) - 5} 0 ${(Math.random() * 10) - 5}`);
+        this.el.setAttribute('position', `${(Math.random() * 12) - 6} 1.7 ${(Math.random() * 12) - 6}`);
       }
     });
 
-    // --- 5. INITIALIZATION ---
-    window.addEventListener('load', () => {
+    window.addEventListener('load', function() {
         NAF.schemas.add({
             template: '#avatar-template',
-            components: ['position', 'rotation', { component: 'sync-name', property: 'name' }]
+            components: [
+                'position', 
+                'rotation',
+                { component: 'sync-name', property: 'name' } 
+            ]
         });
 
-        // Socket setup
-        const params = new URLSearchParams(window.location.search);
         window.gameSocket = window.ioGame(`${window.location.protocol}//${window.location.hostname}:8080`);
         
         window.gameSocket.on('connect', () => {
+            const params = new URLSearchParams(window.location.search);
             window.gameSocket.emit('join_game', { name: params.get('username') || 'Guest' });
         });
 
         window.gameSocket.on('show_question', (data) => {
+            const text = `${data.q}\n\nA: ${data.options[0]}   B: ${data.options[1]}\nC: ${data.options[2]}   D: ${data.options[3]}`;
             const screen = document.querySelector('#screen-text');
-            screen.setAttribute('text', 'value', `${data.q}\n\nA: ${data.options[0]} | B: ${data.options[1]}\nC: ${data.options[2]} | D: ${data.options[3]}`);
+            if(screen) screen.setAttribute('text', { value: text, color: 'white' });
+            
+            document.querySelector('#timer-bar').setAttribute('width', 9);
+            document.querySelector('#timer-bar').setAttribute('color', '#00ff00');
             document.querySelector('#answer-buttons').setAttribute('visible', true);
         });
 
+        window.gameSocket.on('timer_update', (timeLeft) => {
+            const bar = document.querySelector('#timer-bar');
+            if(bar) bar.setAttribute('width', (timeLeft / 15) * 9);
+        });
+
         window.gameSocket.on('show_results', (data) => {
-            document.querySelector('#screen-text').setAttribute('text', 'value', `Correct: Option ${data.correct_option + 1}`);
+            document.querySelector('#screen-text').setAttribute('text', { value: `Time's Up!\nCorrect: Option ${data.correct_option + 1}` });
             document.querySelector('#answer-buttons').setAttribute('visible', false);
         });
+    });
+
+    const serverUrl = `${window.location.protocol}//${window.location.hostname}:8081`;
+    document.querySelector('a-scene').setAttribute('networked-scene', {
+        room: 'kahoot-vr-room',
+        adapter: 'wseasyrtc',
+        serverURL: serverUrl
     });
   </script>
 </body>
