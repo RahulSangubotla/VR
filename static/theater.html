@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Fixed Controls (Final)</title>
+  <title>VR Kahoot - Controls Inverted (Fixed)</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -68,7 +68,7 @@
 
     <a-entity id="local-rig" 
               wasd-controls="fly: false" 
-              gamepad-move="speed: 4.0; invertX: false; invertZ: true" 
+              gamepad-move="speed: 4.0; invertX: true; invertZ: false" 
               gamepad-look="sensitivity: 2.5"
               gamepad-clicker
               wall-collider="width: 15; length: 15"
@@ -93,13 +93,13 @@
   </a-scene>
 
   <script>
-    // --- 1. GAMEPAD MOVE (Fully corrected logic) ---
+    // --- 1. GAMEPAD MOVE (With Inversion Logic) ---
     AFRAME.registerComponent('gamepad-move', {
       schema: {
           speed: {default: 4.0},
           deadzone: {default: 0.2},
-          invertX: {default: false}, // Toggle if Left/Right is wrong
-          invertZ: {default: false}  // Toggle if Forward/Back is wrong
+          invertX: {default: false}, 
+          invertZ: {default: false}
       },
       init: function() {
           this.camera = document.querySelector('[camera]');
@@ -119,11 +119,11 @@
           if (Math.abs(inputX) < this.data.deadzone) inputX = 0;
           if (Math.abs(inputZ) < this.data.deadzone) inputZ = 0;
 
-          if (inputX === 0 && inputZ === 0) return;
-
-          // Apply inversions if needed
+          // Apply inversions based on HTML attributes
           if (this.data.invertX) inputX *= -1;
           if (this.data.invertZ) inputZ *= -1;
+
+          if (inputX === 0 && inputZ === 0) return;
 
           // Get direction relative to camera
           this.camera.object3D.getWorldDirection(this.forward);
@@ -135,8 +135,9 @@
           // Move Logic
           this.moveDir.set(0, 0, 0);
           
-          // -inputZ because normally Up on stick is -1, which should move Forward
-          // If invertZ is true, we flip this behavior.
+          // Note: Standard joystick "Up" is -1. 
+          // We default to -inputZ to move forward. 
+          // If invertZ is false (default for this fix), Up (-1) becomes Forward.
           this.moveDir.addScaledVector(this.forward, -inputZ); 
           this.moveDir.addScaledVector(this.right, inputX);
 
