@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Controls Inverted (Fixed)</title>
+  <title>VR Kahoot - Final Fixed Controls</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -68,7 +68,7 @@
 
     <a-entity id="local-rig" 
               wasd-controls="fly: false" 
-              gamepad-move="speed: 4.0; invertX: true; invertZ: false" 
+              gamepad-move="speed: 4.0; invertX: false; invertZ: false" 
               gamepad-look="sensitivity: 2.5"
               gamepad-clicker
               wall-collider="width: 15; length: 15"
@@ -93,7 +93,7 @@
   </a-scene>
 
   <script>
-    // --- 1. GAMEPAD MOVE (With Inversion Logic) ---
+    // --- 1. GAMEPAD MOVE ---
     AFRAME.registerComponent('gamepad-move', {
       schema: {
           speed: {default: 4.0},
@@ -119,25 +119,24 @@
           if (Math.abs(inputX) < this.data.deadzone) inputX = 0;
           if (Math.abs(inputZ) < this.data.deadzone) inputZ = 0;
 
-          // Apply inversions based on HTML attributes
+          // Inversion logic
           if (this.data.invertX) inputX *= -1;
           if (this.data.invertZ) inputZ *= -1;
 
           if (inputX === 0 && inputZ === 0) return;
 
-          // Get direction relative to camera
+          // Camera Direction Logic
           this.camera.object3D.getWorldDirection(this.forward);
           this.forward.y = 0;
           this.forward.normalize();
 
           this.right.crossVectors(this.forward, this.camera.object3D.up).normalize();
 
-          // Move Logic
           this.moveDir.set(0, 0, 0);
           
-          // Note: Standard joystick "Up" is -1. 
-          // We default to -inputZ to move forward. 
-          // If invertZ is false (default for this fix), Up (-1) becomes Forward.
+          // Logic: Standard Joystick Up is -1. 
+          // We apply -inputZ so that (-1) becomes (+1) Forward.
+          // By ensuring invertZ is false in HTML, Forward stays Forward.
           this.moveDir.addScaledVector(this.forward, -inputZ); 
           this.moveDir.addScaledVector(this.right, inputX);
 
