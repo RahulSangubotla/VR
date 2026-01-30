@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - First Person Fixed</title>
+  <title>VR Kahoot - No AR Button</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -13,10 +13,20 @@
 
   <script src="https://unpkg.com/easyrtc@1.1.0/api/easyrtc.js"></script>
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
+  
+  <style>
+    /* Hides the AR button specifically */
+    .a-enter-ar-button {
+        display: none !important;
+    }
+  </style>
 </head>
 
 <body>
-  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;">
+  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;"
+           vr-mode-ui="enterARButton: #hidden-ar; enterVRButton: .a-enter-vr-button">
+
+    <a-entity id="hidden-ar" style="display: none;"></a-entity>
     
     <a-assets>
       <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
@@ -82,7 +92,7 @@
   </a-scene>
 
   <script>
-    // --- 1. NAME SYNC & VISIBILITY TOGGLE ---
+    // --- 1. NAME SYNC & VISIBILITY ---
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
@@ -95,12 +105,8 @@
                 const params = new URLSearchParams(window.location.search);
                 const myName = params.get('username') || 'Guest'; 
                 this.el.setAttribute('sync-name', 'name', myName);
-
-                // --- THE FIX: Hide the local model so it doesn't block camera ---
                 const visuals = this.el.querySelector('.visuals');
-                if (visuals) {
-                    visuals.setAttribute('visible', false);
-                }
+                if (visuals) visuals.setAttribute('visible', false);
             }
         },
         update: function() {
@@ -128,14 +134,9 @@
       tick: function () {
         const cam = this.el.sceneEl.camera.el;
         if (!cam) return;
-
         const camPos = cam.getAttribute('position');
         const camRot = cam.getAttribute('rotation');
-
-        // Copy position
         this.el.setAttribute('position', camPos);
-
-        // Copy ONLY Y rotation (Yaw)
         this.el.setAttribute('rotation', {x: 0, y: camRot.y, z: 0});
       }
     });
@@ -151,7 +152,6 @@
         const pos = this.el.object3D.position;
         const halfWidth = (this.data.width / 2) - this.data.padding;
         const halfLength = (this.data.length / 2) - this.data.padding;
-
         if (pos.x < -halfWidth) pos.x = -halfWidth;
         if (pos.x > halfWidth) pos.x = halfWidth;
         if (pos.z < -halfLength) pos.z = -halfLength;
