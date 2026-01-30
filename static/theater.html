@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Production Ready</title>
+  <title>VR Kahoot - Final Production</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -21,15 +21,6 @@
   </style>
 
   <script>
-    // 0. SETUP ICE SERVERS (Critical for AWS)
-    if (window.easyrtc) {
-        easyrtc.setSocketUrl(":8081"); 
-        // Google's STUN server helps punch through AWS firewalls
-        easyrtc.setIceConfig({
-            iceServers: [ { urls: "stun:stun1.l.google.com:19302" } ]
-        });
-    }
-
     // 1. AUTO CONNECT
     AFRAME.registerComponent('auto-connect', {
       init: function() {
@@ -44,6 +35,7 @@
           adapter: 'wseasyrtc',
           serverURL: avatarServerUrl,
           audio: true,
+          // This handles the AWS Firewall punching automatically
           iceServers: [ { 'urls': 'stun:stun1.l.google.com:19302' } ] 
         });
       }
@@ -151,7 +143,7 @@
   </a-scene>
 
   <script>
-    // 4. NAME SYNC (RESTORED VISIBILITY LOGIC)
+    // 4. NAME SYNC (MODEL HIDDEN FOR SELF)
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
@@ -171,9 +163,8 @@
                 const myName = params.get('username') || 'Guest'; 
                 this.el.setAttribute('sync-name', 'name', myName);
                 
-                // === FIX: HIDE SELF LOCALLY ===
-                // This hides the robot model ONLY for you, so you don't block your own camera.
-                // Other players will still see you because isMine() is false for them.
+                // === HIDE SELF ===
+                // This makes the 'visuals' entity invisible ONLY for the local user.
                 const visuals = this.el.querySelector('.visuals');
                 if (visuals) visuals.setAttribute('visible', false);
             }
