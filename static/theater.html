@@ -8,7 +8,11 @@
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-  <script>window.ioGame = window.io;</script> 
+  <script>
+    // Save v4 to a specific variable so it doesn't get overwritten
+    window.ioGame = window.io;
+  </script> 
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.5.0/socket.io.slim.js"></script>
 
   <script src="https://unpkg.com/easyrtc@1.1.0/api/easyrtc.js"></script>
@@ -16,7 +20,7 @@
 </head>
 
 <body>
-  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;">
+  <a-scene>
     
     <a-assets>
       <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
@@ -78,12 +82,27 @@
   </a-scene>
 
   <script>
+    // 0. CONFIGURATION (Dynamic IP Handling)
+    const protocol = window.location.protocol; // 'http:' or 'https:'
+    const hostname = window.location.hostname; // 'localhost' or '54.x.x.x'
+    
+    // Construct URLs
+    const avatarServerUrl = `${protocol}//${hostname}:8081`; // Port 8081 for Avatars
+    const gameServerUrl   = `${protocol}//${hostname}:8080`; // Port 8080 for Quiz Logic
+
+    // Inject Networked-AFrame Configuration with STUN Servers
+    document.querySelector('a-scene').setAttribute('networked-scene', {
+        room: 'kahoot-vr-room',
+        adapter: 'wseasyrtc',
+        serverURL: avatarServerUrl,
+        iceServers: [ { 'urls': 'stun:stun1.l.google.com:19302' } ] // FIX FOR AWS LAG
+    });
+
     // 1. NAME SYNC (Includes Retry Logic)
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
             this.trySetName();
-            // Retry twice in case network is slow
             setTimeout(() => this.trySetName(), 500);
             setTimeout(() => this.trySetName(), 1500);
         },
@@ -168,7 +187,7 @@
 
     // 4. BOOTSTRAP
     window.addEventListener('load', function() {
-        console.log("Connecting...");
+        console.log(`Connecting to Game Server at: ${gameServerUrl}`);
         
         NAF.schemas.add({
             template: '#avatar-template',
@@ -179,8 +198,8 @@
             ]
         });
 
-        window.gameSocket = window.ioGame(`${window.location.protocol}//${window.location.hostname}:8080`);
-        
+        // Use the Dynamic Game URL
+        window.gameSocket = window.ioGame(gameServerUrl); 
         
         window.gameSocket.on('connect', () => {
             const params = new URLSearchParams(window.location.search);
@@ -213,14 +232,6 @@
             document.querySelector('#answer-buttons').setAttribute('visible', false);
         });
     });
-    const serverUrl = `${window.location.protocol}//${window.location.hostname}:8081`; // Port 8081 for Avatar server
-
-    document.querySelector('a-scene').setAttribute('networked-scene', {
-    room: 'kahoot-vr-room',
-    adapter: 'wseasyrtc',
-    serverURL: serverUrl
-    });
   </script>
-  
 </body>
 </html>
