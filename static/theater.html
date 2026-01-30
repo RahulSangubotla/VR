@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - No AR Button (Fixed)</title>
+  <title>VR Kahoot - Xbox Controller Support</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -15,11 +15,8 @@
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
   
   <style>
-    /* SAFELY HIDE AR BUTTON */
-    /* This hides the specific AR button without breaking A-Frame's logic */
-    .a-enter-ar-button {
-        display: none !important;
-    }
+    /* HIDE AR BUTTON */
+    .a-enter-ar-button { display: none !important; }
   </style>
 </head>
 
@@ -51,11 +48,6 @@
     
     <a-plane position="0 0 0" rotation="-90 0 0" width="15" height="15" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
 
-    <a-plane position="0 5 -7.5" width="15" height="15" color="#FFFFFF"></a-plane>
-    <a-plane position="-7.5 5 0" rotation="0 90 0" width="15" height="15" color="#FFFFFF"></a-plane>
-    <a-plane position="7.5 5 0" rotation="0 -90 0" width="15" height="15" color="#FFFFFF"></a-plane>
-    <a-plane position="0 5 7.5" rotation="0 180 0" width="15" height="15" color="#FFFFFF"></a-plane>
-
     <a-entity position="0 4 -7.4">
         <a-box width="9.2" height="5.2" depth="0.1" color="#222"></a-box>
         <a-plane position="0 0 0.06" width="9" height="5" color="#000"></a-plane>
@@ -64,18 +56,22 @@
     </a-entity>
 
     <a-entity id="answer-buttons" position="0 1.5 -3" visible="false">
-        <a-box position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
-        <a-box position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box class="clickable" position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box class="clickable" position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box class="clickable" position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
+        <a-box class="clickable" position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
     </a-entity>
 
     <a-entity id="local-rig" 
               camera look-controls wasd-controls
               wall-collider="width: 15; length: 15"
+              gamepad-clicker
               random-spawn
               position="0 1.7 0">
-        <a-entity cursor="fuse: false"
+        
+        <a-entity id="my-cursor"
+                  cursor="fuse: false"
+                  raycaster="objects: .clickable" 
                   position="0 0 -1"
                   geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
                   material="color: #3BB143; shader: flat">
@@ -90,7 +86,53 @@
   </a-scene>
 
   <script>
-    // --- 1. NAME SYNC & VISIBILITY ---
+    // --- 0. GAMEPAD CLICKER (NEW) ---
+    // Listens for Xbox 'A' Button (Index 0) and simulates a click on looked-at objects
+    AFRAME.registerComponent('gamepad-clicker', {
+      init: function() {
+        this.cursor = this.el.querySelector('[raycaster]');
+        this.prevButtonState = false;
+      },
+      tick: function() {
+        // 1. Get Gamepads
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        if (!gamepads) return;
+
+        // 2. Check first active gamepad
+        const gp = gamepads[0] || gamepads[1]; 
+        if (!gp || !gp.buttons) return;
+
+        // 3. Check Button 0 (Xbox 'A' button)
+        const isPressed = gp.buttons[0].pressed;
+
+        // 4. Trigger Click ONLY on the "Down" press (debounce)
+        if (isPressed && !this.prevButtonState) {
+          this.triggerClick();
+        }
+
+        this.prevButtonState = isPressed;
+      },
+      triggerClick: function() {
+        if (!this.cursor) return;
+        
+        // Find what the raycaster is currently touching
+        const intersected = this.cursor.components.raycaster.intersectedEls;
+        
+        if (intersected.length > 0) {
+          // Click the first thing we see
+          const target = intersected[0];
+          target.emit('click');
+          
+          // Visual feedback (flash the cursor)
+          this.cursor.setAttribute('material', 'color', 'white');
+          setTimeout(() => {
+             this.cursor.setAttribute('material', 'color', '#3BB143');
+          }, 100);
+        }
+      }
+    });
+
+    // --- 1. SYNC NAME ---
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
