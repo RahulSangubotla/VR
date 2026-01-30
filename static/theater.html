@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - No AR Button</title>
+  <title>VR Kahoot - No AR Button (Fixed)</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -15,7 +15,8 @@
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
   
   <style>
-    /* Hides the AR button specifically */
+    /* SAFELY HIDE AR BUTTON */
+    /* This hides the specific AR button without breaking A-Frame's logic */
     .a-enter-ar-button {
         display: none !important;
     }
@@ -23,10 +24,7 @@
 </head>
 
 <body>
-  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;"
-           vr-mode-ui="enterARButton: #hidden-ar; enterVRButton: .a-enter-vr-button">
-
-    <a-entity id="hidden-ar" style="display: none;"></a-entity>
+  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;">
     
     <a-assets>
       <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
