@@ -10,7 +10,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
   <script>window.ioGame = window.io;</script> 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.5.0/socket.io.slim.js"></script>
-
   <script src="https://unpkg.com/easyrtc@1.1.0/api/easyrtc.js"></script>
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
 </head>
@@ -54,13 +53,19 @@
         <a-entity id="screen-text" text="value: Waiting for Host...; align: center; width: 8; color: white" position="0 0.5 0.1"></a-entity>
     </a-entity>
 
-    <a-entity id="local-player" 
+    <a-entity id="answer-buttons" position="0 1.5 -3" visible="false">
+        <a-box position="-1.5 0 0" color="#e74c3c" class="clickable" depth="0.2" height="0.5" width="0.8"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box position="-0.5 0 0" color="#3498db" class="clickable" depth="0.2" height="0.5" width="0.8"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box position="0.5 0 0" color="#f1c40f" class="clickable" depth="0.2" height="0.5" width="0.8"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
+        <a-box position="1.5 0 0" color="#2ecc71" class="clickable" depth="0.2" height="0.5" width="0.8"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
+    </a-entity>
+
+    <a-entity id="local-rig" 
               wasd-controls 
               wall-collider="width: 15; length: 15"
-              position="0 1.6 0">
-        
-        <a-entity camera look-controls>
+              position="0 1.6 2"> <a-entity id="local-camera" camera look-controls>
             <a-entity cursor="fuse: false"
+                      raycaster="objects: .clickable"
                       position="0 0 -1"
                       geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
                       material="color: #3BB143; shader: flat">
@@ -76,7 +81,8 @@
   </a-scene>
 
   <script>
-    // FIX: Wall Collider
+    // --- COMPONENT: Wall Collider ---
+    // Prevents the user from walking outside the room bounds
     AFRAME.registerComponent('wall-collider', {
       schema: {
         width: {default: 15},
@@ -95,34 +101,27 @@
       }
     });
 
-    // CRITICAL FIX: Avatar Sync
-    // This makes the networked avatar follow the player's position
-    // BUT ignores the X-axis rotation (Pitch), keeping feet on the ground.
+    // --- COMPONENT: Avatar Sync (CRITICAL FIX) ---
+    // This script forces the networked avatar to match the player's position
+    // BUT only copies the Y-axis rotation (left/right look), keeping feet flat on ground.
     AFRAME.registerComponent('avatar-sync', {
       tick: function () {
-        // Only sync if this is MY avatar
+        // We only control our own avatar, not others'
         if (!NAF.utils.isMine(this.el)) return;
 
-        const playerRig = document.querySelector("#local-player");
-        const playerCamera = document.querySelector("[camera]");
+        const rig = document.querySelector("#local-rig");
+        const cam = document.querySelector("#local-camera");
 
-        if (playerRig && playerCamera) {
-            // 1. Copy Position exactly
-            this.el.object3D.position.copy(playerRig.object3D.position);
+        if (rig && cam) {
+            // 1. Copy Position exactly from Rig (WASD movement)
+            this.el.object3D.position.copy(rig.object3D.position);
 
-            // 2. Copy Y-Rotation (Yaw) from Camera so avatar faces where you look
-            // We ignore X and Z rotation so it never tilts up/down
-            const camRotation = playerCamera.object3D.rotation;
-            this.el.object3D.rotation.set(0, camRotation.y, 0);
+            // 2. Copy Y-Rotation from Camera (Where you are looking horizontally)
+            // We deliberately set X and Z rotation to 0 to prevent tilting (floating)
+            this.el.object3D.rotation.set(0, cam.object3D.rotation.y, 0);
         }
       }
     });
-
-    // Random Spawn Logic
-    const rig = document.querySelector('#local-player');
-    const x = (Math.random() * 10) - 5;
-    const z = (Math.random() * 10) - 5;
-    rig.setAttribute('position', `${x} 1.6 ${z}`);
   </script>
 </body>
 </html>
