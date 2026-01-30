@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Fixed Bounds</title>
+  <title>VR Kahoot - Mobile Fix</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -13,25 +13,34 @@
 
   <script src="https://unpkg.com/easyrtc@1.1.0/api/easyrtc.js"></script>
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
+
+  <style>
+    /* FIX 1: HIDE AR BUTTON */
+    /* This specifically targets the AR button often added by A-Frame on mobile */
+    .a-enter-ar-button, .a-enter-vr-button.a-hidden {
+        display: none !important;
+    }
+  </style>
 </head>
 
 <body>
-  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;">
+  <a-scene 
+    networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;"
+    vr-mode-ui="enterARButton: #element-that-does-not-exist"> 
     
     <a-assets>
       <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
 
       <template id="avatar-template">
         <a-entity class="avatar" sync-name player-animator>
-          <a-entity class="visuals">
+          <a-entity class="visuals" ground-lock>
               <a-entity class="model"
                         gltf-model="#robot-model" 
                         scale="0.3 0.3 0.3" 
                         rotation="0 180 0"
-                        position="0 -1.6 0"
                         animation-mixer="clip: Idle; crossFadeDuration: 0.4">
               </a-entity>
-              <a-text class="nametag" value="Loading..." align="center" position="0 0.8 0" rotation="0 180 0" scale="0.5 0.5 0.5" color="yellow" side="double"></a-text>
+              <a-text class="nametag" value="Loading..." align="center" position="0 2.4 0" rotation="0 180 0" scale="0.5 0.5 0.5" color="yellow" side="double"></a-text>
           </a-entity>
         </a-entity>
       </template>
@@ -39,7 +48,6 @@
 
     <a-sky color="#FFFFFF"></a-sky>
     <a-entity light="type: ambient; color: #BBB; intensity: 0.7"></a-entity>
-    <a-entity light="type: point; color: #FFF; intensity: 0.4" position="0 4 0"></a-entity>
     
     <a-plane position="0 0 0" rotation="-90 0 0" width="15" height="15" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
 
@@ -67,8 +75,7 @@
               camera look-controls wasd-controls 
               wall-collider="width: 15; length: 15"
               random-spawn
-              position="0 1.7 0">
-        <a-entity cursor="fuse: false"
+              position="0 1.6 0"> <a-entity cursor="fuse: false"
                   position="0 0 -1"
                   geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
                   material="color: #3BB143; shader: flat">
@@ -77,24 +84,47 @@
   </a-scene>
 
   <script>
-    // 1. WALL COLLIDER (The Fix)
-    // This manually checks if you go past the walls and pushes you back.
+    // FIX 2: GROUND LOCK COMPONENT
+    // This script forces the avatar model to stay upright and on the ground
+    // regardless of how the player (camera) tilts or rotates.
+    AFRAME.registerComponent('ground-lock', {
+      tick: function () {
+        if (!this.el.parentElement) return;
+        
+        // 1. Get the Parent's (Player/Camera) World Position and Rotation
+        var parentObj = this.el.parentElement.object3D;
+        var myObj = this.el.object3D;
+        
+        var parentPos = new THREE.Vector3();
+        var parentQuat = new THREE.Quaternion();
+        parentObj.getWorldPosition(parentPos);
+        parentObj.getWorldQuaternion(parentQuat);
+
+        // 2. Extract only the Y-rotation (Yaw) from the parent
+        // This ignores the X/Z rotation (looking up/down/tilting)
+        var euler = new THREE.Euler();
+        euler.setFromQuaternion(parentQuat, 'YXZ');
+
+        // 3. Force the Model to be at the parent's X/Z, but fixed at Y=0 (Ground)
+        // We set World Position/Rotation directly to override the child-parent relationship
+        myObj.position.set(parentPos.x, 0, parentPos.z);
+        myObj.rotation.set(0, euler.y, 0);
+      }
+    });
+
+    // 1. WALL COLLIDER
     AFRAME.registerComponent('wall-collider', {
       schema: {
         width: {default: 15},
         length: {default: 15},
-        padding: {default: 0.4} // Keeps you slightly away from the exact edge
+        padding: {default: 0.4}
       },
       tick: function () {
         const pos = this.el.object3D.position;
         const halfWidth = (this.data.width / 2) - this.data.padding;
         const halfLength = (this.data.length / 2) - this.data.padding;
-
-        // Clamp X position
         if (pos.x < -halfWidth) pos.x = -halfWidth;
         if (pos.x > halfWidth) pos.x = halfWidth;
-
-        // Clamp Z position
         if (pos.z < -halfLength) pos.z = -halfLength;
         if (pos.z > halfLength) pos.z = halfLength;
       }
@@ -114,7 +144,14 @@
                 const myName = params.get('username') || 'Guest'; 
                 this.el.setAttribute('sync-name', 'name', myName);
                 const visuals = this.el.querySelector('.visuals');
-                if (visuals) visuals.setAttribute('visible', false);
+                if (visuals) {
+                   // We keep visuals VISIBLE now so the 'ground-lock' works locally
+                   // But we might want to hide the mesh itself if it blocks view
+                   // For now, let's keep it visible to verify feet are on ground
+                   visuals.setAttribute('visible', true); 
+                   // Hide just the model inside if it blocks camera view
+                   // this.el.querySelector('.model').setAttribute('visible', false); 
+                }
             }
         },
         update: function() {
@@ -137,7 +174,7 @@
         }
     });
 
-    // 3. ANIMATOR (Throttled)
+    // 3. ANIMATOR
     AFRAME.registerComponent('player-animator', {
         init: function() {
             this.model = this.el.querySelector('.model');
@@ -181,8 +218,7 @@
 
     AFRAME.registerComponent('random-spawn', {
       init: function () {
-        // Spawn safely inside the 15x15 box (range -6 to 6)
-        this.el.setAttribute('position', `${(Math.random() * 12) - 6} 1.7 ${(Math.random() * 12) - 6}`);
+        this.el.setAttribute('position', `${(Math.random() * 12) - 6} 1.6 ${(Math.random() * 12) - 6}`);
       }
     });
 
