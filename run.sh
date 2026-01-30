@@ -16,29 +16,6 @@ if [ $AVAILABLE_MEM -lt 200 ]; then
     echo "⚠️  WARNING: Low memory detected! Consider stopping other services."
 fi
 
-# --- Install Dependencies (Free Tier - Virtual Environment) ---
-echo "📦 Checking dependencies..."
-
-# Create virtual environment if it doesn't exist
-if [ ! -d "venv" ]; then
-    echo "🐍 Creating Python virtual environment..."
-    python3 -m venv venv
-fi
-
-# Check if pip packages are installed in virtual environment
-if ! venv/bin/python -c "import fastapi" 2>/dev/null; then
-    echo "📦 Installing Python dependencies in virtual environment..."
-    source venv/bin/activate
-    pip install -r requirements.txt
-    deactivate
-fi
-
-# Check if node modules are installed
-if [ ! -d "avatar-server/node_modules" ]; then
-    echo "Installing Node.js dependencies..."
-    (cd avatar-server && npm install)
-fi
-
 # --- Cleanup any existing processes ---
 echo "🧹 Cleaning up any existing processes..."
 pkill -f "node server.js" || true
