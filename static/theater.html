@@ -2,23 +2,18 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Gamepad Enabled (Fixed)</title>
+  <title>VR Kahoot - Aesthetic Theatre</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
   <script>window.ioGame = window.io;</script> 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.5.0/socket.io.slim.js"></script>
-
   <script src="https://unpkg.com/easyrtc@1.1.0/api/easyrtc.js"></script>
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
   
   <style>
-    /* SAFELY HIDE AR BUTTON */
-    .a-enter-ar-button {
-        display: none !important;
-    }
+    .a-enter-ar-button { display: none !important; }
   </style>
 </head>
 
@@ -42,31 +37,146 @@
           </a-entity>
         </a-entity>
       </template>
+
+      <a-mixin id="chair-base" geometry="primitive: box; width: 0.6; height: 0.1; depth: 0.6" material="color: #500; roughness: 0.6"></a-mixin>
+      <a-mixin id="chair-back" geometry="primitive: box; width: 0.6; height: 0.8; depth: 0.1" material="color: #400; roughness: 0.6"></a-mixin>
+      <a-mixin id="chair-leg" geometry="primitive: box; width: 0.06; height: 0.4; depth: 0.06" material="color: #200; roughness: 0.8"></a-mixin>
+      
+      <a-mixin id="sconce" geometry="primitive: cylinder; radius: 0.1; height: 0.4" material="color: #fff8e7; emissive: #ffaa00; emissiveIntensity: 0.5"></a-mixin>
     </a-assets>
 
-    <a-sky color="#FFFFFF"></a-sky>
-    <a-entity light="type: ambient; color: #BBB; intensity: 0.7"></a-entity>
-    <a-entity light="type: point; color: #FFF; intensity: 0.4" position="0 4 0"></a-entity>
+    <a-sky color="#020202"></a-sky>
+
+    <a-entity light="type: ambient; color: #222; intensity: 0.3"></a-entity>
     
-    <a-plane position="0 0 0" rotation="-90 0 0" width="15" height="15" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
-
-    <a-plane position="0 5 -7.5" width="15" height="15" color="#FFFFFF"></a-plane>
-    <a-plane position="-7.5 5 0" rotation="0 90 0" width="15" height="15" color="#FFFFFF"></a-plane>
-    <a-plane position="7.5 5 0" rotation="0 -90 0" width="15" height="15" color="#FFFFFF"></a-plane>
-    <a-plane position="0 5 7.5" rotation="0 180 0" width="15" height="15" color="#FFFFFF"></a-plane>
-
-    <a-entity position="0 4 -7.4">
-        <a-box width="9.2" height="5.2" depth="0.1" color="#222"></a-box>
-        <a-plane position="0 0 0.06" width="9" height="5" color="#000"></a-plane>
-        <a-box id="timer-bar" position="0 2.3 0.1" width="9" height="0.2" depth="0.01" color="#00ff00"></a-box>
-        <a-entity id="screen-text" text="value: Waiting for Host...; align: center; width: 8; color: white" position="0 0.5 0.1"></a-entity>
+    <a-entity id="screen-spot" 
+              light="type: spot; color: #fff; intensity: 0.2; angle: 45; penumbra: 0.5" 
+              position="0 10 -5" 
+              rotation="-45 0 0">
+    </a-entity>
+    
+    <a-entity id="audience-light" 
+              light="type: spot; color: #ffaa77; intensity: 0.8; angle: 65; penumbra: 0.5" 
+              position="0 8 4" 
+              rotation="-90 0 0">
     </a-entity>
 
-    <a-entity id="answer-buttons" position="0 1.5 -3" visible="false">
-        <a-box class="clickable" position="-1.5 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.5" width="0.8"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box class="clickable" position="-0.5 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.5" width="0.8"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
-        <a-box class="clickable" position="0.5 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.5" width="0.8"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
-        <a-box class="clickable" position="1.5 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.5" width="0.8"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
+    <a-plane position="0 0 0" rotation="-90 0 0" width="30" height="30" color="#0a0a0a" material="roughness: 1; metalness: 0"></a-plane>
+    
+    <a-plane position="0 0.01 2" rotation="-90 0 0" width="2" height="12" color="#600" material="roughness: 1"></a-plane>
+
+    <a-plane position="0 0.01 -8" rotation="-90 0 0" width="16" height="6" color="#150f0f"></a-plane>
+    
+    <a-box position="0 0.02 -5.05" width="16" height="0.05" depth="0.1" color="#DAA520" material="metalness: 0.6; roughness: 0.3"></a-box>
+
+    <a-plane position="0 5 -10.9" width="20" height="10" color="#500" material="side: double; roughness: 1;"></a-plane>
+    <a-box position="-9.5 5 -9" width="2" height="10" depth="2" color="#300"></a-box>
+    <a-box position="9.5 5 -9" width="2" height="10" depth="2" color="#300"></a-box>
+    <a-box position="0 9 -9" width="20" height="2" depth="1" color="#400"></a-box>
+
+    <a-plane position="-10 5 0" rotation="0 90 0" width="25" height="15" color="#050505"></a-plane>
+    <a-plane position="10 5 0" rotation="0 -90 0" width="25" height="15" color="#050505"></a-plane>
+    <a-plane position="0 5 12" rotation="0 180 0" width="25" height="15" color="#050505"></a-plane>
+
+    <a-entity position="-9.9 3 0" rotation="0 0 90"><a-entity mixin="sconce"></a-entity></a-entity>
+    <a-entity position="-9.9 3 4" rotation="0 0 90"><a-entity mixin="sconce"></a-entity></a-entity>
+    <a-entity position="-9.9 3 -4" rotation="0 0 90"><a-entity mixin="sconce"></a-entity></a-entity>
+    
+    <a-entity position="9.9 3 0" rotation="0 0 -90"><a-entity mixin="sconce"></a-entity></a-entity>
+    <a-entity position="9.9 3 4" rotation="0 0 -90"><a-entity mixin="sconce"></a-entity></a-entity>
+    <a-entity position="9.9 3 -4" rotation="0 0 -90"><a-entity mixin="sconce"></a-entity></a-entity>
+
+    <a-entity position="-9.8 4 -5" rotation="0 90 0">
+        <a-box width="1.2" height="0.6" depth="0.1" color="#000"></a-box>
+        <a-text value="EXIT" color="#2ecc71" align="center" width="6" z-offset="0.06"></a-text>
+        <a-entity light="type: point; color: #2ecc71; intensity: 1.5; distance: 3" position="0 0 0.5"></a-entity>
+    </a-entity>
+
+    <a-entity position="9.8 4 -5" rotation="0 -90 0">
+        <a-box width="1.2" height="0.6" depth="0.1" color="#000"></a-box>
+        <a-text value="EXIT" color="#2ecc71" align="center" width="6" z-offset="0.06"></a-text>
+        <a-entity light="type: point; color: #2ecc71; intensity: 1.5; distance: 3" position="0 0 0.5"></a-entity>
+    </a-entity>
+
+
+    <a-entity id="seating-area" position="0 0 2">
+        <a-entity position="-4 0.4 0">
+            <a-entity mixin="chair-base"></a-entity><a-entity mixin="chair-back" position="0 0.4 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 -0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 -0.25"></a-entity>
+        </a-entity>
+        <a-entity position="-2 0.4 0">
+            <a-entity mixin="chair-base"></a-entity><a-entity mixin="chair-back" position="0 0.4 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 -0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 -0.25"></a-entity>
+        </a-entity>
+        
+        <a-entity position="2 0.4 0">
+            <a-entity mixin="chair-base"></a-entity><a-entity mixin="chair-back" position="0 0.4 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 -0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 -0.25"></a-entity>
+        </a-entity>
+        <a-entity position="4 0.4 0">
+            <a-entity mixin="chair-base"></a-entity><a-entity mixin="chair-back" position="0 0.4 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 -0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 -0.25"></a-entity>
+        </a-entity>
+        
+        <a-entity position="-4 0.4 2">
+            <a-entity mixin="chair-base"></a-entity><a-entity mixin="chair-back" position="0 0.4 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 -0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 -0.25"></a-entity>
+        </a-entity>
+        <a-entity position="-2 0.4 2">
+            <a-entity mixin="chair-base"></a-entity><a-entity mixin="chair-back" position="0 0.4 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 -0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 -0.25"></a-entity>
+        </a-entity>
+        <a-entity position="2 0.4 2">
+            <a-entity mixin="chair-base"></a-entity><a-entity mixin="chair-back" position="0 0.4 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 -0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 -0.25"></a-entity>
+        </a-entity>
+        <a-entity position="4 0.4 2">
+            <a-entity mixin="chair-base"></a-entity><a-entity mixin="chair-back" position="0 0.4 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 -0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 -0.25"></a-entity>
+        </a-entity>
+
+        <a-entity position="-4 0.4 4">
+            <a-entity mixin="chair-base"></a-entity><a-entity mixin="chair-back" position="0 0.4 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 -0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 -0.25"></a-entity>
+        </a-entity>
+        <a-entity position="-2 0.4 4">
+            <a-entity mixin="chair-base"></a-entity><a-entity mixin="chair-back" position="0 0.4 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 -0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 -0.25"></a-entity>
+        </a-entity>
+        <a-entity position="2 0.4 4">
+            <a-entity mixin="chair-base"></a-entity><a-entity mixin="chair-back" position="0 0.4 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 -0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 -0.25"></a-entity>
+        </a-entity>
+        <a-entity position="4 0.4 4">
+            <a-entity mixin="chair-base"></a-entity><a-entity mixin="chair-back" position="0 0.4 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 0.25"></a-entity>
+            <a-entity mixin="chair-leg" position="-0.25 -0.2 -0.25"></a-entity><a-entity mixin="chair-leg" position="0.25 -0.2 -0.25"></a-entity>
+        </a-entity>
+    </a-entity>
+
+    <a-entity id="main-screen" position="0 4.5 -9.8">
+        <a-box width="12.4" height="7.2" depth="0.1" color="#111"></a-box>
+        <a-plane position="0 0 0.06" width="12" height="7" color="#000"></a-plane>
+        <a-box id="timer-bar" position="0 3.3 0.1" width="12" height="0.15" depth="0.01" color="#00ff00"></a-box>
+        <a-entity id="screen-text" text="value: Waiting for Host...; align: center; width: 10; color: white" position="0 0.5 0.15"></a-entity>
+    </a-entity>
+
+    <a-entity id="answer-buttons" position="0 1.2 -3" visible="false">
+        <a-box class="clickable" position="-1.8 0 0" color="#e74c3c" click-answer="index: 0" depth="0.2" height="0.6" width="1"><a-text value="A" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box class="clickable" position="-0.6 0 0" color="#3498db" click-answer="index: 1" depth="0.2" height="0.6" width="1"><a-text value="B" align="center" z-offset="0.11"></a-text></a-box>
+        <a-box class="clickable" position="0.6 0 0" color="#f1c40f" click-answer="index: 2" depth="0.2" height="0.6" width="1"><a-text value="C" align="center" color="black" z-offset="0.11"></a-text></a-box>
+        <a-box class="clickable" position="1.8 0 0" color="#2ecc71" click-answer="index: 3" depth="0.2" height="0.6" width="1"><a-text value="D" align="center" z-offset="0.11"></a-text></a-box>
     </a-entity>
 
     <a-entity id="local-rig" 
@@ -74,9 +184,9 @@
               gamepad-move="speed: 5.0" 
               gamepad-look="sensitivity: 2.0"
               gamepad-clicker
-              wall-collider="width: 15; length: 15"
+              wall-collider="width: 25; length: 25"
               random-spawn
-              position="0 0 0">
+              position="0 0 5">
         
         <a-entity id="main-camera" camera position="0 1.6 0" look-controls="pointerLockEnabled: true">
             <a-entity cursor="fuse: false"
@@ -96,30 +206,54 @@
   </a-scene>
 
   <script>
-    // --- 1. GAMEPAD LOGIC ---
-    
+    // --- LIGHTING CONTROL SYSTEM ---
+    const TheaterLights = {
+        isGameRunning: false,
+        startGame: function() {
+            if (this.isGameRunning) return; 
+            this.isGameRunning = true;
+
+            const audienceLight = document.querySelector('#audience-light');
+            const screenSpot = document.querySelector('#screen-spot');
+
+            // 1. Dim the House Lights (Audience)
+            if(audienceLight) {
+                audienceLight.setAttribute('animation', {
+                    property: 'light.intensity',
+                    to: 0.1,
+                    dur: 2000,
+                    easing: 'easeInOutQuad'
+                });
+            }
+
+            // 2. Brighten the Stage Lights (Screen)
+            if(screenSpot) {
+                screenSpot.setAttribute('animation', {
+                    property: 'light.intensity',
+                    to: 1.0,
+                    dur: 2000,
+                    easing: 'easeInOutQuad'
+                });
+            }
+        }
+    };
+
+    // --- GAMEPAD & LOGIC ---
     AFRAME.registerComponent('gamepad-move', {
       schema: { speed: {default: 5.0}, deadzone: {default: 0.15} },
-      init: function() {
-        this.camera = document.querySelector('[camera]');
-      },
+      init: function() { this.camera = document.querySelector('[camera]'); },
       tick: function(time, dt) {
         const gamepads = navigator.getGamepads();
         const gp = gamepads[0] || gamepads[1];
         if (!gp) return;
-
         let x = gp.axes[0]; 
         let z = gp.axes[1]; 
-
         if (Math.abs(x) < this.data.deadzone) x = 0;
         if (Math.abs(z) < this.data.deadzone) z = 0;
         if (x === 0 && z === 0) return;
-
         const angle = this.camera.object3D.rotation.y + this.el.object3D.rotation.y;
-
         const moveX = x * Math.cos(angle) + z * Math.sin(angle);
         const moveZ = z * Math.cos(angle) - x * Math.sin(angle);
-
         const dTime = dt / 1000;
         this.el.object3D.position.x += moveX * this.data.speed * dTime;
         this.el.object3D.position.z += moveZ * this.data.speed * dTime;
@@ -132,10 +266,8 @@
             const gamepads = navigator.getGamepads();
             const gp = gamepads[0] || gamepads[1];
             if (!gp) return;
-            
             const lookX = gp.axes[2]; 
             if (Math.abs(lookX) < 0.1) return;
-
             const rotation = this.el.getAttribute('rotation');
             rotation.y -= lookX * this.data.sensitivity;
             this.el.setAttribute('rotation', rotation);
@@ -151,7 +283,6 @@
             const gamepads = navigator.getGamepads();
             const gp = gamepads[0];
             if (!gp || !this.cursorEl) return;
-
             if (gp.buttons[0].pressed) {
                 if (!this.buttonPressed) {
                     this.triggerClick();
@@ -167,32 +298,20 @@
         }
     });
 
-    // --- 2. CORE LOGIC ---
-
     AFRAME.registerComponent('rig-follow', {
       init: function() {
-        // Create reuseable objects to prevent garbage collection
         this.camPos = new THREE.Vector3();
         this.camQuat = new THREE.Quaternion();
         this.camEuler = new THREE.Euler();
-        this.camEuler.order = 'YXZ'; // Important for getting correct Y rotation
+        this.camEuler.order = 'YXZ';
       },
       tick: function () {
         const cam = document.querySelector('#main-camera');
         if (!cam) return;
-        
-        // 1. Sync Position
         cam.object3D.getWorldPosition(this.camPos);
         this.el.setAttribute('position', this.camPos);
-        
-        // 2. Sync Rotation (FIXED)
-        // Get the World Quaternion of the camera
         cam.object3D.getWorldQuaternion(this.camQuat);
-        
-        // Convert that Quaternion to Euler angles to get the Y component
         this.camEuler.setFromQuaternion(this.camQuat);
-        
-        // Apply only the Y rotation to the avatar
         this.el.object3D.rotation.y = this.camEuler.y;
       }
     });
@@ -202,7 +321,6 @@
         init: function() {
             this.trySetName();
             setTimeout(() => this.trySetName(), 500);
-            setTimeout(() => this.trySetName(), 1500);
         },
         trySetName: function() {
             if (NAF.utils.isMine(this.el)) {
@@ -234,7 +352,7 @@
     });
 
     AFRAME.registerComponent('wall-collider', {
-      schema: { width: {default: 15}, length: {default: 15}, padding: {default: 0.4} },
+      schema: { width: {default: 25}, length: {default: 25}, padding: {default: 0.5} },
       tick: function () {
         const pos = this.el.object3D.position;
         const halfWidth = (this.data.width / 2) - this.data.padding;
@@ -257,7 +375,6 @@
             if (!this.model) return;
             const currentPos = this.el.object3D.getWorldPosition(new THREE.Vector3());
             const distSq = currentPos.distanceToSquared(this.prevPos);
-            
             if (distSq > 0.0005) { 
                 if (this.currentAnim !== "Walking") {
                     this.model.setAttribute('animation-mixer', 'clip: Walking; crossFadeDuration: 0.2');
@@ -288,18 +405,14 @@
 
     AFRAME.registerComponent('random-spawn', {
       init: function () {
-        this.el.setAttribute('position', `${(Math.random() * 12) - 6} 0 ${(Math.random() * 12) - 6}`);
+        this.el.setAttribute('position', `${(Math.random() * 8) - 4} 0 ${(Math.random() * 4) + 2}`);
       }
     });
 
     window.addEventListener('load', function() {
         NAF.schemas.add({
             template: '#avatar-template',
-            components: [
-                'position', 
-                'rotation',
-                { component: 'sync-name', property: 'name' } 
-            ]
+            components: [ 'position', 'rotation', { component: 'sync-name', property: 'name' } ]
         });
 
         window.gameSocket = window.ioGame(`${window.location.protocol}//${window.location.hostname}:8080`);
@@ -310,18 +423,18 @@
         });
 
         window.gameSocket.on('show_question', (data) => {
+            TheaterLights.startGame();
             const text = `${data.q}\n\nA: ${data.options[0]}   B: ${data.options[1]}\nC: ${data.options[2]}   D: ${data.options[3]}`;
             const screen = document.querySelector('#screen-text');
             if(screen) screen.setAttribute('text', { value: text, color: 'white' });
-            
-            document.querySelector('#timer-bar').setAttribute('width', 9);
+            document.querySelector('#timer-bar').setAttribute('width', 12);
             document.querySelector('#timer-bar').setAttribute('color', '#00ff00');
             document.querySelector('#answer-buttons').setAttribute('visible', true);
         });
 
         window.gameSocket.on('timer_update', (timeLeft) => {
             const bar = document.querySelector('#timer-bar');
-            if(bar) bar.setAttribute('width', (timeLeft / 15) * 9);
+            if(bar) bar.setAttribute('width', (timeLeft / 15) * 12);
         });
 
         window.gameSocket.on('show_results', (data) => {
