@@ -16,13 +16,21 @@ if [ $AVAILABLE_MEM -lt 200 ]; then
     echo "⚠️  WARNING: Low memory detected! Consider stopping other services."
 fi
 
-# --- Install Dependencies (Free Tier - Direct install) ---
+# --- Install Dependencies (Free Tier - Virtual Environment) ---
 echo "📦 Checking dependencies..."
 
-# Check if pip packages are installed
-if ! python3 -c "import fastapi" 2>/dev/null; then
-    echo "Installing Python dependencies..."
-    pip3 install -r requirements.txt --user
+# Create virtual environment if it doesn't exist
+if [ ! -d "venv" ]; then
+    echo "🐍 Creating Python virtual environment..."
+    python3 -m venv venv
+fi
+
+# Check if pip packages are installed in virtual environment
+if ! venv/bin/python -c "import fastapi" 2>/dev/null; then
+    echo "📦 Installing Python dependencies in virtual environment..."
+    source venv/bin/activate
+    pip install -r requirements.txt
+    deactivate
 fi
 
 # Check if node modules are installed
@@ -47,23 +55,25 @@ echo "🎯 Starting Main Game Server..."
 # Use 'trap' to ensure cleanup happens on exit
 trap "kill $AVATAR_PID 2>/dev/null || true" EXIT
 
-# Check if conda is available (optional)
-if command -v conda &> /dev/null; then
+# Check if conda is available (optional - but prefer virtual environment)
+if command -v conda &> /dev/null && [ -z "$VIRTUAL_ENV" ]; then
     echo "🐍 Conda detected, trying to activate environment..."
     # Initialize conda for this shell session
     eval "$(conda shell.bash hook)" 2>/dev/null || eval "$(/home/$USER/miniconda3/bin/conda shell.bash hook)" 2>/dev/null || eval "$(/home/$USER/anaconda3/bin/conda shell.bash hook)" 2>/dev/null
     
-    # Try to activate environment, fallback to system python if it fails
+    # Try to activate environment, fallback to virtual environment if it fails
     if conda activate vivitsu 2>/dev/null; then
         echo "✅ Using conda environment: vivitsu"
         python main.py
     else
-        echo "⚠️  Conda environment 'vivitsu' not found, using system Python3"
-        python3 main.py
+        echo "⚠️  Conda environment 'vivitsu' not found, using virtual environment"
+        source venv/bin/activate
+        python main.py
     fi
 else
-    echo "🐍 Using system Python3..."
-    python3 main.py
+    echo "🐍 Using virtual environment..."
+    source venv/bin/activate
+    python main.py
 fi
 
 # --- Cleanup ---
