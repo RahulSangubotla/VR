@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Fixed Movement</title>
+  <title>VR Kahoot - Fixed Controls (Final)</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -68,7 +68,7 @@
 
     <a-entity id="local-rig" 
               wasd-controls="fly: false" 
-              gamepad-move="speed: 4.0;"
+              gamepad-move="speed: 4.0; invertX: false; invertZ: true" 
               gamepad-look="sensitivity: 2.5"
               gamepad-clicker
               wall-collider="width: 15; length: 15"
@@ -93,12 +93,13 @@
   </a-scene>
 
   <script>
-    // --- 1. CRITICAL FIX: ROBUST GAMEPAD MOVE ---
-    // Uses Three.js vectors to move exactly where the camera is facing.
+    // --- 1. GAMEPAD MOVE (Fully corrected logic) ---
     AFRAME.registerComponent('gamepad-move', {
       schema: {
           speed: {default: 4.0},
-          deadzone: {default: 0.2} // Increased deadzone to prevent drift
+          deadzone: {default: 0.2},
+          invertX: {default: false}, // Toggle if Left/Right is wrong
+          invertZ: {default: false}  // Toggle if Forward/Back is wrong
       },
       init: function() {
           this.camera = document.querySelector('[camera]');
@@ -108,36 +109,37 @@
       },
       tick: function(time, dt) {
           const gamepads = navigator.getGamepads();
-          // Check all 4 slots just in case
           const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
           if (!gp) return;
 
-          // Standard mapping: Axis 0 = Left/Right, Axis 1 = Up/Down
-          let inputX = gp.axes[0]; 
-          let inputZ = gp.axes[1]; 
+          let inputX = gp.axes[0]; // Left/Right
+          let inputZ = gp.axes[1]; // Up/Down
 
-          // Deadzone check
+          // Deadzone
           if (Math.abs(inputX) < this.data.deadzone) inputX = 0;
           if (Math.abs(inputZ) < this.data.deadzone) inputZ = 0;
 
           if (inputX === 0 && inputZ === 0) return;
 
-          // 1. Get Camera's World Direction (The "Real" Forward)
+          // Apply inversions if needed
+          if (this.data.invertX) inputX *= -1;
+          if (this.data.invertZ) inputZ *= -1;
+
+          // Get direction relative to camera
           this.camera.object3D.getWorldDirection(this.forward);
-          this.forward.y = 0; // Flatten to ground (no flying)
+          this.forward.y = 0;
           this.forward.normalize();
 
-          // 2. Calculate Right Vector
           this.right.crossVectors(this.forward, this.camera.object3D.up).normalize();
 
-          // 3. Combine Inputs
-          // Forward/Back moves along 'forward' vector
-          // Left/Right moves along 'right' vector
+          // Move Logic
           this.moveDir.set(0, 0, 0);
-          this.moveDir.addScaledVector(this.forward, -inputZ); // -Z is forward in joystick logic usually
-          this.moveDir.addScaledVector(this.right, inputX);    // +X is right
+          
+          // -inputZ because normally Up on stick is -1, which should move Forward
+          // If invertZ is true, we flip this behavior.
+          this.moveDir.addScaledVector(this.forward, -inputZ); 
+          this.moveDir.addScaledVector(this.right, inputX);
 
-          // 4. Apply Movement to Rig
           const dTime = dt / 1000;
           const speed = this.data.speed;
           
@@ -154,7 +156,6 @@
             const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
             if (!gp) return;
             
-            // Axis 2 is Right Stick X (Horizontal)
             const lookX = gp.axes[2];
             const dt = timeDelta / 1000;
             
@@ -177,7 +178,6 @@
             const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3];
             if (!gp) return;
 
-            // Button 0 is usually 'A' on Xbox
             if (gp.buttons[0].pressed) {
                 if (!this.buttonPressed) {
                     this.triggerClick();
@@ -194,7 +194,6 @@
                 const target = raycaster.intersectedEls[0];
                 target.emit('click');
                 
-                // Visual Flash
                 const mat = this.cursorEl.getAttribute('material');
                 const oldColor = mat.color;
                 this.cursorEl.setAttribute('material', 'color', '#e74c3c');
@@ -205,7 +204,7 @@
         }
     });
 
-    // --- 4. UTILS (Sync Name, Bounds, etc) ---
+    // --- 4. UTILS ---
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
