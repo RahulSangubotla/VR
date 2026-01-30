@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Strong Collisions</title>
+  <title>VR Kahoot - Models Fixed</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -21,7 +21,7 @@
   </style>
 
   <script>
-    // 1. AUTO CONNECT (Simple version with Ice Servers included)
+    // 1. AUTO CONNECT
     AFRAME.registerComponent('auto-connect', {
       init: function() {
         const protocol = window.location.protocol;
@@ -35,7 +35,6 @@
           adapter: 'wseasyrtc',
           serverURL: avatarServerUrl,
           audio: true,
-          // We include this even if it causes a console warning, because it is necessary for AWS.
           iceServers: [ { 'urls': 'stun:stun1.l.google.com:19302' } ] 
         });
       }
@@ -51,23 +50,16 @@
         }
     });
 
-    // 3. STRONG WALL COLLISIONS (Uses object3D for hard stops)
+    // 3. STRONG WALL COLLISIONS
     AFRAME.registerComponent('room-bounds', {
       schema: { 
-        minX: {default: -9.5}, // 9.5 allows getting closer to the 10m wall
-        maxX: {default: 9.5}, 
-        minZ: {default: -9.5}, 
-        maxZ: {default: 9.5} 
+        minX: {default: -9.5}, maxX: {default: 9.5}, 
+        minZ: {default: -9.5}, maxZ: {default: 9.5} 
       },
       tick: function() {
-        // Direct access to Three.js position for stronger clamping
         const pos = this.el.object3D.position;
-
-        // Hard Clamp X
         if (pos.x < this.data.minX) pos.x = this.data.minX;
         if (pos.x > this.data.maxX) pos.x = this.data.maxX;
-
-        // Hard Clamp Z
         if (pos.z < this.data.minZ) pos.z = this.data.minZ;
         if (pos.z > this.data.maxZ) pos.z = this.data.maxZ;
       }
@@ -81,7 +73,7 @@
   <a-scene auto-connect vr-mode-ui="enterARButton: #hidden-ar-button;">
     
     <a-assets>
-      <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
+      <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@r147/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
 
       <template id="avatar-template">
         <a-entity class="avatar" sync-name player-animator>
@@ -106,7 +98,12 @@
     <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" color="#050505" material="roughness: 0.4; metalness: 0.2"></a-plane>
     <a-plane position="0 6 0" rotation="90 0 0" width="20" height="20" color="#EEEEEE"></a-plane>
 
-    <a-plane position="0 3 -10" width="20" height="6" color="#FFFFFF"></a-plane> <a-plane position="0 3 10" rotation="0 180 0" width="20" height="6" color="#FFFFFF"></a-plane> <a-plane position="-10 3 0" rotation="0 90 0" width="20" height="6" color="#FFFFFF"></a-plane> <a-plane position="10 3 0" rotation="0 -90 0" width="20" height="6" color="#FFFFFF"></a-plane> <a-entity position="0 3 -9.9">
+    <a-plane position="0 3 -10" width="20" height="6" color="#FFFFFF"></a-plane>
+    <a-plane position="0 3 10" rotation="0 180 0" width="20" height="6" color="#FFFFFF"></a-plane>
+    <a-plane position="-10 3 0" rotation="0 90 0" width="20" height="6" color="#FFFFFF"></a-plane>
+    <a-plane position="10 3 0" rotation="0 -90 0" width="20" height="6" color="#FFFFFF"></a-plane>
+
+    <a-entity position="0 3 -9.9">
         <a-box width="9.2" height="5.2" depth="0.1" color="#222"></a-box>
         <a-plane position="0 0 0.06" width="9" height="5" color="#000"></a-plane>
         <a-box id="timer-bar" position="0 2.3 0.1" width="9" height="0.2" depth="0.01" color="#00ff00"></a-box>
@@ -144,19 +141,28 @@
   </a-scene>
 
   <script>
-    // 4. NAME SYNC
+    // 4. NAME SYNC (Fixed to correctly find the mesh inside the child)
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
             this.trySetName();
             setTimeout(() => this.trySetName(), 500);
             setTimeout(() => this.trySetName(), 1500);
+            
+            // Listen for model loading to apply color
+            this.el.addEventListener('model-loaded', (evt) => {
+                // Ensure we are coloring the mesh that just loaded
+                const obj = evt.detail.model; 
+                this.updateColor(this.data.name, obj);
+            });
         },
         trySetName: function() {
             if (NAF.utils.isMine(this.el)) {
                 const params = new URLSearchParams(window.location.search);
                 const myName = params.get('username') || 'Guest'; 
                 this.el.setAttribute('sync-name', 'name', myName);
+                
+                // Hide LOCAL visuals so you don't block your own camera
                 const visuals = this.el.querySelector('.visuals');
                 if (visuals) visuals.setAttribute('visible', false);
             }
@@ -164,19 +170,28 @@
         update: function() {
             const textEl = this.el.querySelector('.nametag');
             if (textEl) textEl.setAttribute('value', this.data.name);
-            this.updateColor(this.data.name);
+            
+            // Try to find mesh if it's already loaded
+            const modelEl = this.el.querySelector('.model');
+            if (modelEl) {
+                const obj = modelEl.getObject3D('mesh');
+                if (obj) this.updateColor(this.data.name, obj);
+            }
         },
-        updateColor: function(name) {
+        updateColor: function(name, obj) {
+            if (!obj) return;
             let hash = 0;
             for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
             let color = '#';
             for (let i = 0; i < 3; i++) color += ('00' + ((hash >> (i * 8)) & 0xFF).toString(16)).substr(-2);
-            const apply = () => {
-                const obj = this.el.getObject3D('mesh');
-                if (obj) obj.traverse(n => { if (n.isMesh) n.material.color.set(color); });
-            };
-            if (this.el.getObject3D('mesh')) apply();
-            else this.el.addEventListener('model-loaded', apply);
+            
+            obj.traverse(n => { 
+                if (n.isMesh) {
+                    n.material.color.set(color);
+                    // Ensure material doesn't look flat/black
+                    n.material.needsUpdate = true;
+                } 
+            });
         }
     });
 
