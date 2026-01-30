@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>VR Kahoot - Mobile Fix</title>
+  <title>VR Kahoot - Fixed Mobile</title>
   
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-extras@7.2.0/dist/aframe-extras.min.js"></script>
@@ -15,18 +15,15 @@
   <script src="https://unpkg.com/networked-aframe/dist/networked-aframe.min.js"></script>
 
   <style>
-    /* FIX 1: HIDE AR BUTTON */
-    /* This specifically targets the AR button often added by A-Frame on mobile */
-    .a-enter-ar-button, .a-enter-vr-button.a-hidden {
+    /* SAFELY HIDE AR BUTTON */
+    .a-enter-ar-button {
         display: none !important;
     }
   </style>
 </head>
 
 <body>
-  <a-scene 
-    networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;"
-    vr-mode-ui="enterARButton: #element-that-does-not-exist"> 
+  <a-scene networked-scene="room: kahoot-vr-room; adapter: wseasyrtc;">
     
     <a-assets>
       <a-asset-item id="robot-model" src="https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb"></a-asset-item>
@@ -75,7 +72,8 @@
               camera look-controls wasd-controls 
               wall-collider="width: 15; length: 15"
               random-spawn
-              position="0 1.6 0"> <a-entity cursor="fuse: false"
+              position="0 1.6 0">
+        <a-entity cursor="fuse: false"
                   position="0 0 -1"
                   geometry="primitive: ring; radiusInner: 0.005; radiusOuter: 0.01"
                   material="color: #3BB143; shader: flat">
@@ -84,35 +82,30 @@
   </a-scene>
 
   <script>
-    // FIX 2: GROUND LOCK COMPONENT
-    // This script forces the avatar model to stay upright and on the ground
-    // regardless of how the player (camera) tilts or rotates.
+    // 1. GROUND LOCK (Fixes Flying Avatar on Mobile)
     AFRAME.registerComponent('ground-lock', {
       tick: function () {
         if (!this.el.parentElement) return;
         
-        // 1. Get the Parent's (Player/Camera) World Position and Rotation
-        var parentObj = this.el.parentElement.object3D;
-        var myObj = this.el.object3D;
+        var parentObj = this.el.parentElement.object3D; // The Camera/Player wrapper
+        var myObj = this.el.object3D; // The Avatar Model
         
         var parentPos = new THREE.Vector3();
         var parentQuat = new THREE.Quaternion();
         parentObj.getWorldPosition(parentPos);
         parentObj.getWorldQuaternion(parentQuat);
 
-        // 2. Extract only the Y-rotation (Yaw) from the parent
-        // This ignores the X/Z rotation (looking up/down/tilting)
+        // Get Y-rotation (Yaw) only
         var euler = new THREE.Euler();
         euler.setFromQuaternion(parentQuat, 'YXZ');
 
-        // 3. Force the Model to be at the parent's X/Z, but fixed at Y=0 (Ground)
-        // We set World Position/Rotation directly to override the child-parent relationship
+        // Force position to floor (y=0) and rotation to be upright
         myObj.position.set(parentPos.x, 0, parentPos.z);
         myObj.rotation.set(0, euler.y, 0);
       }
     });
 
-    // 1. WALL COLLIDER
+    // 2. WALL COLLIDER (Fixes Walls)
     AFRAME.registerComponent('wall-collider', {
       schema: {
         width: {default: 15},
@@ -130,7 +123,7 @@
       }
     });
 
-    // 2. NAME SYNC
+    // 3. NAME SYNC
     AFRAME.registerComponent('sync-name', {
         schema: { name: { type: 'string', default: 'Loading...' } },
         init: function() {
@@ -143,15 +136,10 @@
                 const params = new URLSearchParams(window.location.search);
                 const myName = params.get('username') || 'Guest'; 
                 this.el.setAttribute('sync-name', 'name', myName);
-                const visuals = this.el.querySelector('.visuals');
-                if (visuals) {
-                   // We keep visuals VISIBLE now so the 'ground-lock' works locally
-                   // But we might want to hide the mesh itself if it blocks view
-                   // For now, let's keep it visible to verify feet are on ground
-                   visuals.setAttribute('visible', true); 
-                   // Hide just the model inside if it blocks camera view
-                   // this.el.querySelector('.model').setAttribute('visible', false); 
-                }
+                
+                // Keep visuals visible so ground-lock works, 
+                // but hide the inner model if it blocks your view
+                // this.el.querySelector('.model').setAttribute('visible', false); 
             }
         },
         update: function() {
@@ -174,7 +162,7 @@
         }
     });
 
-    // 3. ANIMATOR
+    // 4. ANIMATOR
     AFRAME.registerComponent('player-animator', {
         init: function() {
             this.model = this.el.querySelector('.model');
@@ -202,7 +190,7 @@
         }
     });
 
-    // 4. GAME LOGIC
+    // 5. GAME LOGIC
     AFRAME.registerComponent('click-answer', {
         schema: { index: {type: 'int', default: 0} },
         init: function () {
